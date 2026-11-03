@@ -53,8 +53,8 @@ Eleven ordered rules, in implementation-plan.md section 6. Summary:
 - Few speakers per region: speaker effects dominate. The pilot cannot say anything about accents.
 - Read and spontaneous speech differ in difficulty, hence separate strata.
 - Region labels are self-identified and coarse ("Northern" is northern England in general; the dataset gives no town, so Yorkshire and the rest cannot be separated). Labels are never split or pooled. The comparison group is self-identified Southern English, not SSBE.
-- Speaker IDs repeat across the dataset's subsets, so speakers are keyed `<label>_<id>`. Whether a repeated ID is the same person is unknown.
+- Speaker IDs repeat across the dataset's subsets. They are almost certainly different people sharing a number (it is only unique within a subset), so speakers are keyed `<label>_<id>`.
 - The sentences were written to elicit accent differences (place names, airline and personal names), so they may be harder than ordinary speech.
 - Normalisation choices (register contractions, filler list, number style) shape WER. They are fixed before scoring and documented, not tuned.
 - Public datasets may overlap model training data (Common Voice especially), which would flatter WER. Another reason the pilot proves the pipeline, not the accents.
-- API determinism is best-effort even with a seed. A repeat run with a changed `seed` (not `--refresh`, which re-sends the same request) measures variance, if budget allows.
+- API determinism is best-effort even with a seed. A repeat run with a changed `seed` (not `--force`, which re-sends the same request) measures variance, if budget allows.

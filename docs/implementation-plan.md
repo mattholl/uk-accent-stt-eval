@@ -16,9 +16,10 @@ Status: round 3 (consistency pass after the dataset pivot), ready for the coder.
 | D6 | Output | CSV tables plus a pandas/matplotlib notebook (`notebooks/results.ipynb`) with graphs and audio players | DECIDED |
 | D7 | Key | Free ElevenLabs key: 10,000 credits/month, about 330 credits per audio minute (pricing page), so about 30 min/month | DECIDED |
 | D8 | Dev approach | Default backend is `fake`. The real API is gated. | DECIDED |
-| P1 | Pilot | Dataset `ylacombe/english_dialects` (Hugging Face copy of OpenSLR SLR83, CC BY-SA 4.0, read speech only). Male subsets only (Irish exists only as male), 2 speakers per label x 3 clips = **36 clips, 3.2 min, about 1,150 credits**. Already fetched by `scripts/fetch_english_dialects_samples.py`. Validates the pipeline only, not regional claims. | DECIDED |
+| P1 | Pilot | Dataset `ylacombe/english_dialects` (Hugging Face copy of OpenSLR SLR83, CC BY-SA 4.0, read speech only). Male subsets only (Irish exists only as male), 2 speakers per label x 3 clips = **36 clips, 3.2 min, about 1,060 credits**. Already fetched by `scripts/fetch_english_dialects_samples.py`. Validates the pipeline only, not regional claims. | DECIDED |
 | P2 | Pilot cap | Pilot refused if total duration > 10.0 min (allows a larger second fetch later). | PROPOSED |
-| P3 | Full study | About 10 speakers/region, about 7.5 h = 148,500 credits. Needs a paid plan and user approval. Not built or run. | PROPOSED |
+| P12 | Scope cuts | No credit ledger, no response cache, no concurrency stress tests. Add one only if real use shows a need (decided with the user 2026-11-03). Kept: retry/backoff, concurrency, property tests, notebook. | DECIDED |
+| P3 | Full study | About 10 speakers/region, about 7.5 h = about 148,500 credits. Needs a paid plan and user approval. Not built or run. | PROPOSED |
 | P4 | Data | Two sets. `pilot`: the dataset clips above. `demo`: the few informal samples the user already has, for listening and general interest: no standard text, no statistics, reference optional. | PROPOSED |
 | P5 | Scribe params | `model_id=scribe_v2, language_code=eng, tag_audio_events=false, timestamps_granularity=word, diarize=false, no_verbatim=false, seed=20261102, file_format=other`. `temperature` unset, no keyterms or surcharged options. | PROPOSED |
 | P6 | Fillers | Kept in the verbatim transcript, stripped from both sides by the `filler` rows in `config/normalise.csv` | PROPOSED |
@@ -27,7 +28,7 @@ Status: round 3 (consistency pass after the dataset pivot), ready for the coder.
 | P9 | Dependencies | Runtime: `requests` only. Stdlib for math, WAV, CSV. No numpy/scipy/tenacity/dotenv. Optional extra `[notebook]`: pandas, matplotlib, jupyter, nbformat (pins verified in S0). | PROPOSED |
 | P10 | Register contractions | `gonna wanna gotta kinda sorta cos 'cause` are mapped to long forms on both sides. Dialect words are never mapped. | PROPOSED |
 | P11 | Audio on disk | Audio is never deleted or moved by the tool. `audio_path` in the manifest points at the local file (own samples under `recordings/`, dataset clips under `data/audio/`, both gitignored). The notebook plays clips with `IPython.display.Audio`. | PROPOSED |
-| X1 | Dollar cost | Any dollar figure (e.g. the $0.22/h API pay-as-you-go price) is **UNVERIFIED** as a credit conversion and is used in no decision. Credits are the only unit. | NOTE |
+| X1 | Dollar cost | Any dollar figure (e.g. the $0.22/h API pay-as-you-go price) is **UNVERIFIED** as a credit conversion and is used in no decision. | NOTE |
 
 ## 2. Regions
 
@@ -52,17 +53,17 @@ uk-accent-stt-eval/
                      # [project.optional-dependencies].notebook=[pandas==…, matplotlib==…, jupyter==…, nbformat==…]
                      # [project.scripts] ukstt="ukstt.cli:main"; [tool.setuptools.packages.find] where=["src"]
   .env.sample        # ELEVENLABS_API_KEY=*** value)
-  .gitignore         # exists: .env, /.env.local, /data/ /cache/ /runs/ /ledger/ /results/ /dummy/ /recordings/. S0 appends: .venv/ __pycache__/ *.egg-info/ .pytest_cache/ .ipynb_checkpoints/. `.env.sample` stays tracked.
+  .gitignore         # exists: .env, /.env.local, /data/ /results/ /dummy/ /recordings/ /runs/. S0 appends: .venv/ __pycache__/ *.egg-info/ .pytest_cache/ .ipynb_checkpoints/. `.env.sample` stays tracked.
   config/            # study.toml regions.csv normalise.csv fake.toml   (full contents in §3a)
   scripts/           # fetch_english_dialects_samples.py (exists; writes data/audio, references, manifests/clips_in.csv). Not part of the package, no tests.
   references/        # <clip_id>.txt  human reference transcript, one per clip (optional for demo clips)
   recordings/        # own demo samples: <clip_id>.wav (gitignored)     data/audio/  dataset clips (gitignored)
   manifests/         # clips_in.csv (importer output, pilot)  demo_in.csv (hand-written, optional)  clips.csv validation_report.csv pilot.csv smoke.csv demo.csv
-  cache/<backend>/<key[:2]>/<key>.json   ledger/ledger.csv   runs/<run_id>/{run_manifest.json,clips.csv,transcribe_log.csv,raw/}   results/<run_id>/…
+  runs/<run_id>/{run_manifest.json,clips.csv,transcribe_log.csv,raw/}   results/<run_id>/…
   src/ukstt/
     __init__.py (__version__="0.1.0")  __main__.py (calls cli.main)  constants.py  config.py  csvio.py  audio.py
     manifest.py  dummy.py  numbers.py  normalise.py  score.py  stats.py  aggregate.py  cli.py
-    transcribe/{__init__.py, base.py, fake.py, elevenlabs.py, cache.py, ledger.py, runner.py}
+    transcribe/{__init__.py, base.py, fake.py, elevenlabs.py, runner.py}
   notebooks/results.ipynb   # pandas + matplotlib; reads results/<run_id>/*.csv, clips.csv, runs/<run_id>/raw/*.json
   tests/
 ```
@@ -83,13 +84,6 @@ no_verbatim = false
 seed = 20261102
 file_format = "other"
 
-[budget]
-monthly_credit_cap = 10000
-credits_already_used = 0        # set after reconciling with the dashboard (S6)
-credits_per_min = 330
-ledger_factor_pct = 105
-ledger_period_start = "2026-11-01"
-
 [http]
 max_retries = 3
 connect_timeout_s = 10
@@ -98,8 +92,6 @@ default_workers = 4
 
 [paths]
 runs_dir = "runs"
-cache_dir = "cache"
-ledger_path = "ledger/ledger.csv"
 results_dir = "results"
 ```
 
@@ -124,20 +116,18 @@ unknown = 0.10      # demo clips
 ```python
 # constants.py
 SEED = 20261102; B = 10_000; ALPHA = 0.05; MIN_SPEAKERS_CI = 5; BASELINE = "southern"
-CREDITS_PER_MIN = 330; LEDGER_FACTOR_PCT = 105; MAX_WORKERS = 8; PILOT_CAP_MIN = 10.0; DEMO_CAP_MIN = 3.0; PILOT_REGIONS = ("southern", "midlands", "northern", "scottish", "welsh", "irish")
+MAX_WORKERS = 8; PILOT_CAP_MIN = 10.0; DEMO_CAP_MIN = 3.0; PILOT_REGIONS = ("southern", "midlands", "northern", "scottish", "welsh", "irish")
 ID_RE = r"^[a-z0-9_]{1,64}$"   # filename-safe check for clip_id and speaker_id; ids are opaque strings and are never parsed or split
 
 # config.py  (study.toml -> frozen dataclass)
 @dataclass(frozen=True)
 class StudyConfig:
     params: dict[str, object]            # native types; sent via wire_params()
-    monthly_credit_cap: int              # 10000
-    credits_already_used: int            # used this month outside this repo; default 0
-    credits_per_min: int; ledger_factor_pct: int; ledger_period_start: str   # "2026-11-01"
+
     max_retries: int                     # 3
     connect_timeout_s: float; read_timeout_s: float   # 10, 120
     default_workers: int                 # 4
-    runs_dir: Path; cache_dir: Path; ledger_path: Path; results_dir: Path
+    runs_dir: Path; results_dir: Path
 def load_config(path: Path = Path("config/study.toml")) -> StudyConfig: ...
 
 # csvio.py (UTF-8, LF, newline='')
@@ -194,14 +184,14 @@ class TranscribeError(Exception): ...
 class HttpError(TranscribeError):
     def __init__(self, status: int, body: str = "", retry_after: float | None = None): ...
 class AuthOrQuotaError(HttpError): ...        # 401/402/403: abort whole run
-class ReadTimeout(TranscribeError): ...       # request was sent; booked, NOT retried
-class ConnectError(TranscribeError): ...      # never sent; retried, never booked
+class ReadTimeout(TranscribeError): ...       # request was sent (it may already be billed); NOT retried
+class ConnectError(TranscribeError): ...      # never sent; retried
 class MalformedResponse(TranscribeError): ...
 class Transcriber(Protocol):
     name: str
     def transcribe(self, audio_path: Path, params: Mapping[str, object]) -> dict: ...
 def validate_response(raw: Mapping) -> None: ...   # MalformedResponse unless raw["text"] is a str. Runner calls it for BOTH backends.
-def wire_params(params: Mapping[str, object]) -> dict[str, str]: ...   # bool -> "true"/"false", else str(v). Used by POST and cache key.
+def wire_params(params: Mapping[str, object]) -> dict[str, str]: ...   # bool -> "true"/"false", else str(v). Used by the POST and stored in run_manifest.json.
 
 # transcribe/fake.py
 class FakeTranscriber:      # ignores params except tag_audio_events; all lookups keyed by audio file stem (== clip_id)
@@ -216,33 +206,13 @@ class FakeTranscriber:      # ignores params except tag_audio_events; all lookup
 class ElevenLabsTranscriber:
     name = "elevenlabs"; URL = "https://api.elevenlabs.io/v1/speech-to-text"
     def __init__(self, api_key: str, connect_timeout_s=10, read_timeout_s=120, session=None) -> None: ...
-    def transcribe(self, audio_path, params) -> dict: ...   # ONE POST, no retry, no booking
-
-# transcribe/cache.py
-def cache_key(audio_sha256: str, wire: Mapping[str, str]) -> str: ...  # sha256(audio_sha256 + "\n" + json.dumps(wire, sort_keys=True, separators=(",", ":")))
-class Cache:
-    def __init__(self, root: Path, backend: str) -> None: ...
-    def get(self, key: str) -> dict | None: ...
-    def put(self, key: str, audio_sha256: str, wire: Mapping[str, str], response: Mapping) -> None: ...
-
-# transcribe/ledger.py   (single process only; no file lock)
-def charge_credits(audio_seconds: float, cfg: StudyConfig) -> int:
-    # integer math: ms = round(audio_seconds*1000); -(-ms * cfg.credits_per_min * cfg.ledger_factor_pct // 6_000_000)
-@dataclass(frozen=True)
-class Booking: run_id: str; clip_id: str; cache_key: str; attempt: int; audio_seconds: float; credits: int; outcome: str  # ok|timeout|malformed
-class Ledger:
-    def __init__(self, path: Path, cfg: StudyConfig) -> None: ...
-    def spent(self) -> int: ...          # cfg.credits_already_used + booked rows with ts_utc >= ledger_period_start
-    def remaining(self) -> int: ...      # cap - spent - in-flight reservations
-    def reserve(self, credits: int) -> bool: ...                       # False if insufficient
-    def settle(self, reservation: int, booking: Booking | None) -> None:  # ONE lock: release reservation, append+fsync booking if any
+    def transcribe(self, audio_path, params) -> dict: ...   # ONE POST, no retry
 
 # transcribe/runner.py
 def call_with_retry(fn: Callable[[], T], *, max_retries: int, sleep: Callable[[float], None] = time.sleep) -> T: ...
 @dataclass(frozen=True)
-class RunOptions: run_id: str; backend: str; max_audio_minutes: float | None; workers: int; refresh: bool
-def run_transcription(clips, opts, cfg, transcriber, ledger: Ledger | None, cache: Cache,
-                      sleep=time.sleep) -> int: ...   # exit code. ledger=None legal for fake only; real + None raises.
+class RunOptions: run_id: str; backend: str; max_audio_minutes: float | None; workers: int; force: bool
+def run_transcription(clips, opts, cfg, transcriber, sleep=time.sleep) -> int: ...   # exit code
 ```
 
 ## 4. Data contract (source-agnostic)
@@ -274,12 +244,12 @@ How clips get here (own samples, an open dataset, a future recording drive) is d
 **Stage selection** (`select_stage`, deterministic, sorted by `clip_id`; its only input is `clips.csv`):
 - `pilot`: every row with `set=pilot` and `region` in `PILOT_REGIONS`. Error if the total duration exceeds `PILOT_CAP_MIN` (10.0 min). Error if any pilot region has no clips.
 - `demo`: every row with `set=demo`. Cap check against `DEMO_CAP_MIN = 3.0` (add to `constants.py`), counted separately. Error if there are no demo rows.
-- `smoke`: the first row of `pilot` (sorted by `clip_id`) with `region=southern`. It is a pilot subset, so the cache is reused by the pilot.
+- `smoke`: the first row of `pilot` (sorted by `clip_id`) with `region=southern`. It is also in the pilot, so the pilot run sends it a second time (a few seconds of audio; accepted, there is no cache).
 - Default `--out` is `<dir of clips.csv>/<stage>.csv`.
 
 ## 5. Transcription behaviour
 
-**Params** come from `config/study.toml [params]` (native types). `wire_params()` turns them into strings (`"true"`/`"false"`). The same dict is used for the multipart POST and the cache key. `temperature` is absent.
+**Params** come from `config/study.toml [params]` (native types). `wire_params()` turns them into strings (`"true"`/`"false"`) for the multipart POST. `temperature` is absent.
 
 **Real call.** One `requests.post(URL, headers={"xi-api-key": key}, data=wire, files={"file": (name, fh, "audio/wav")}, timeout=(10, 120))`.
 - The key is read from env `ELEVENLABS_API_KEY`, else from `.env.local` via a 6-line parser for lines `ELEVENLABS_API_KEY=value` (optional `export ` prefix, optional surrounding quotes, `#` comment lines skipped; other variable names ignored). If the variable is absent the error names `ELEVENLABS_API_KEY` and the file, never a value. Never read `.env` or other `.env*` files. This happens only for the real backend. A missing key exits 2. Never log the key.
@@ -298,30 +268,19 @@ for k in range(max_retries + 1):
 - `max_retries=3`, so 4 attempts. The fake backend uses the same wrapper. Tests pass `sleep=lambda s: None`.
 - NOT retried: `ReadTimeout`, `MalformedResponse`, `AuthOrQuotaError`, other 4xx. They fail the clip immediately (`AuthOrQuotaError` aborts the run).
 
-**Ledger** (real backend only; the fake never touches it):
-- Charge per clip = `charge_credits(duration_s)` = `ceil(sec/60 x 330 x 1.05)` in integer math. A reservation of that size is made **per HTTP attempt**. If `reserve()` is False the clip becomes `skipped_budget` and is not sent.
-- After the attempt: `settle(reservation, booking_or_None)`.
-- Booked: 200 → `ok`; `ReadTimeout` → `timeout` (the request was sent and may be billed); `MalformedResponse` → `malformed`. Not booked: `ConnectError`, 429/5xx, other 4xx, 401/402/403. So a clip is booked at most once.
-- `ledger/ledger.csv`: `ts_utc,run_id,clip_id,cache_key,attempt,audio_seconds,credits,outcome`.
-- Before S8, reconcile `ukstt ledger show` against the ElevenLabs dashboard and set `credits_already_used`.
-
-**Real gate** (checked before any network I/O; exit 2 or 3):
+**Real gate** (checked before any network I/O; exit 2 on failure):
 1. `--backend elevenlabs` given explicitly (default is fake).
-2. `--max-audio-minutes N` given.
-3. Pre-flight over the clips that are not cached and not done (`todo`): `sum(duration_s) <= N*60`.
-4. Pre-flight: `sum(charge_credits(c.duration_s) for c in todo) <= ledger.remaining()`, else exit 3 with needed vs remaining.
-5. API key present.
-6. `--workers` is clamped to `min(workers, 8)`. The real default is 4.
+2. `--max-audio-minutes N` given, and the total duration of the clips about to be sent is at most `N*60`. This is the only spend guard; there is no credit ledger. Check the ElevenLabs dashboard for what is left of the month.
+3. API key present.
+4. `--workers` is clamped to `min(workers, 8)`. The real default is 4.
 
 **Run state and resume.**
 - `runs/<run_id>/run_manifest.json`: `run_id, created_utc, backend, params (wire), clips_file_sha256, normalise_csv_sha256`. `transcribe` also copies the clips file it was given to `runs/<run_id>/clips.csv` (a snapshot; `score` and the notebook read this copy, so they work for dummy and real runs alike).
-- Re-running an existing `run_id` resumes. It exits 2 if `params` or `clips_file_sha256` differ. `score` exits 2 if `normalise_csv_sha256` differs from the current `config/normalise.csv`, unless `--accept-normalise-change` is given (which rewrites the hash).
-- `transcribe_log.csv` is append-only: `ts_utc,clip_id,cache_key,backend,status,attempts,http_status,latency_s,audio_seconds,credits,error`. `status` is `ok|cached|failed|skipped_budget`. The last row per `clip_id` is the state. A clip is done if its raw file exists and its last status is `ok` or `cached`.
-- `raw/<clip_id>.json` is the verbatim response (including `words[]`), written atomically. On a cache hit, write it from the cache response, then log `cached`.
-- Cache entries: `{cache_key, backend, audio_sha256, params, created_utc, response}`. The cache is split by backend. Malformed responses are never cached.
-- `--refresh` skips the cache read, re-sends the same request and overwrites the cache entry. For a different draw, change `seed` in `[params]`.
-- `ThreadPoolExecutor`. The log and the ledger are lock-protected. Outputs are ordered by `clip_id`.
-- Exit codes: 0 ok; 2 usage, gate or validation; 3 budget (pre-flight failure, or any `skipped_budget` after the other clips finish); 4 some clips failed (resume to retry); 5 `AuthOrQuotaError` (stop submitting, let in-flight clips finish). When several apply, return the highest.
+- Re-running an existing `run_id` resumes: a clip whose `raw/<clip_id>.json` already exists is not sent again (log status `skipped`). `--force` sends every clip again and overwrites the raw files. It exits 2 if `params` or `clips_file_sha256` differ from the manifest. `score` exits 2 if `normalise_csv_sha256` differs from the current `config/normalise.csv`, unless `--accept-normalise-change` is given (which rewrites the hash).
+- `transcribe_log.csv` is append-only: `ts_utc,clip_id,backend,status,attempts,http_status,latency_s,audio_seconds,error`. `status` is `ok|skipped|failed`.
+- `raw/<clip_id>.json` is the verbatim response (including `words[]`), written atomically (temp file then `os.replace`). Malformed responses are never written.
+- `ThreadPoolExecutor`. Log writes are lock-protected. Outputs are ordered by `clip_id`.
+- Exit codes: 0 ok; 2 usage, gate or validation; 4 some clips failed (resume to retry); 5 `AuthOrQuotaError` (stop submitting, let in-flight clips finish). When several apply, return the highest.
 
 **FakeTranscriber.**
 - Returns `{"language_code":"eng","language_probability":1.0,"text":…,"words":[{"text","start","end","type":"word"}…]}`. Word-type items only.
@@ -360,7 +319,7 @@ for k in range(max_retries + 1):
 - **N=0.** `wer` is empty (NA). `build-manifest` already rejects own references with zero words (`E_REF_EMPTY_AFTER_NORM`). Scoring raises `ValueError` if `n_ref==0` for any clip, so there is no `ref_empty` status.
 - **CER is not computed in the pilot.**
 - **Demo clips (`set=demo`)** with a reference get an `ok` row in `utterance_scores.csv` (their own WER, for the notebook) but are never written to `speaker_scores.csv` or any later table. `stats` therefore only ever sees pilot clips. Demo clips without a reference get `no_reference`.
-- **Failed, missing, skipped or unreferenced clips** get `status=failed|missing|skipped_budget|no_reference` in `utterance_scores.csv`. They are excluded from WER and counted in `n_excluded`. They are never silently dropped. `no_reference` clips (demo clips without a transcript) are transcribed and visible in the notebook but never scored.
+- **Failed, missing or unreferenced clips** get `status=failed|missing|no_reference` in `utterance_scores.csv`. They are excluded from WER and counted in `n_excluded`. They are never silently dropped. `no_reference` clips (demo clips without a transcript) are transcribed and visible in the notebook but never scored.
 - **Aggregation.** Micro average (sum of errors / sum of words), never the mean of per-clip WERs. The unit in all statistics is the speaker.
 - **Error pairs.** From alignment ops: `sub` (ref→hyp), `del` (ref→empty), `ins` (empty→hyp). Sorted by `-count, ref_word, hyp_word` (row order is the rank).
 - `n_digit_tokens_hyp` is counted on the raw hypothesis text before rule 5.
@@ -374,22 +333,20 @@ for k in range(max_retries + 1):
 - **Pairwise vs baseline** (pilot): one row per (task, non-baseline region); `diff = wer_region − wer_southern`; `wer_base` and `diff` are empty if the baseline has no scored speaker in that task. No p-values, no CIs. The permutation test, Holm correction and difference CI are deferred to the full study (they cannot be informative at 2 vs 2 speakers: the minimum possible p is 1/3).
 - Speaker metadata beyond `speaker_id` and `region` is not used. There is no adjustment for gender, age or recording quality.
 
-## 9. Real-API budget (credits; `ceil(sec/60 x 330 x 1.05)` = 346.5 per minute, per clip with rounding up)
+## 9. Budget (information only, nothing enforces it)
 
-| Item | Audio | Credits |
+The free plan gives 10,000 credits a month, about 330 credits per audio minute (pricing page, UNVERIFIED conversion), so about 30 minutes of audio. Nothing in the code counts credits. The only guard is `--max-audio-minutes`; the ElevenLabs dashboard shows what is left.
+
+| Run | Audio | Credits at 330/min |
 |---|---|---|
-| Free cap | 28.9 min on the ledger basis (30 min raw) | 10,000 |
-| Smoke (one pilot clip; cached for the pilot, 0 extra) | one clip (longest fetched clip is 8.6 s) | at most 50 |
-| Pilot nominal (36 clips, 6 regions, 192 s) | 3.2 min | 1,129 on the ledger basis (computed from the 36 fetched files, per-clip rounding included) |
-| Pilot cap (`PILOT_CAP_MIN`) | 10.0 min | 3,465, plus up to 1 per clip for rounding |
-| Demo set (a few short samples) | under 3 min | under 1,040 |
-| Reserve after pilot at cap and 3 min demo | about 15.9 min | about 5,495 |
-| Reserve after the nominal pilot and 3 min demo | about 22.6 min | about 7,831 |
+| Pilot (36 fetched clips, 192 s) | 3.2 min | about 1,060 |
+| Smoke (one clip sent twice: smoke then pilot) | under 10 s | under 55 |
+| Demo set (your samples, cap 3.0 min) | under 3 min | under 990 |
+| Re-running the pilot with `--force` | 3.2 min | about 1,060 each time |
 
-- The gate checks the sum of per-clip charges against `ledger.remaining()` before any network call, so the table is a guide, not the control.
-- A booked read timeout costs one clip's charge and is not retried. Example: a 20 s clip = 116 credits.
+- A full study (about 7.5 h) is about 148,500 credits and cannot run on a free key.
 - Dollar figures are UNVERIFIED (X1) and are not used.
-- A full study (about 7.5 h) is 148,500 raw credits and cannot run on a free key.
+- If real use shows the free tier is a problem, add a cache or a ledger then. Not before.
 
 ## 10. CLI (`python -m ukstt …` is equivalent; global `--config`)
 
@@ -400,10 +357,9 @@ ukstt build-manifest [--in manifests/clips_in.csv --in manifests/demo_in.csv ...
       [--report manifests/validation_report.csv] [--strict]
 ukstt select --clips manifests/clips.csv --stage {smoke|pilot|demo} [--out <clips dir>/<stage>.csv]
 ukstt transcribe --clips manifests/pilot.csv --run-id pilot-fake-001 [--backend fake|elevenlabs]
-      [--max-audio-minutes N] [--workers N] [--refresh] [--fake-config config/fake.toml]
+      [--max-audio-minutes N] [--workers N] [--force] [--fake-config config/fake.toml]
 ukstt score --run-id pilot-fake-001 --clips manifests/pilot.csv [--out results/<run_id>] [--accept-normalise-change]
 ukstt stats --run-id pilot-fake-001 [--out results/<run_id>]
-ukstt ledger show        # spent, remaining credits and minutes, last 10 bookings
 ```
 
 Real runs, in order (first `ukstt build-manifest` with no flags, then `ukstt select --clips manifests/clips.csv --stage smoke`, and the same for `pilot` and, if `manifests/demo_in.csv` exists, `demo`):
@@ -425,7 +381,7 @@ Output CSVs in `results/<run_id>/` (floats via `fmt_float`, booleans `true/false
 
 ## 11. Tests (pytest; no real network)
 
-`tests/conftest.py`: an autouse fixture makes `socket.socket.connect` raise. `responses` mocks HTTP. Use `tmp_path` for all I/O. Build configs with `dataclasses.replace(cfg, runs_dir=…, cache_dir=…, ledger_path=…, results_dir=…)`.
+`tests/conftest.py`: an autouse fixture makes `socket.socket.connect` raise. `responses` mocks HTTP. Use `tmp_path` for all I/O. Build configs with `dataclasses.replace(cfg, runs_dir=…, results_dir=…)`.
 
 - `test_version.py`: `ukstt.__version__ == "0.1.0"`.
 - `test_normalise.py`: one case per rule, then the full pipeline.
@@ -451,26 +407,25 @@ Output CSVs in `results/<run_id>/` (floats via `fmt_float`, booleans `true/false
   - Dummy data → 0 errors; `select pilot` returns every pilot-region clip and the total is under 10.0 min; `select demo` returns only `set=demo`; smoke is a southern pilot clip.
   - Demo clips (`region=unknown`) without a reference build fine and score as `no_reference`; a demo clip with a reference is scored in `utterance_scores` only and never reaches `speaker_scores`; a pilot clip without a reference is `E_REF_MISSING`; `region=unknown` or `task=unknown` on a pilot clip is an error.
   - Negative cases, one per error code: wrong sample rate, stereo, missing audio file, missing ref (pilot), unknown region, duplicate clip_id, empty-after-norm ref, bad id, bad `set`. A pilot region with no clips → error; pilot over 10.0 min → error.
-- `test_cache.py`: key stable across dict order; changes with params or audio; fake and elevenlabs dirs are separate; `wire_params` turns bools into lowercase strings.
 - `test_fake.py`: determinism; each failure token behaves as listed; the error rate is recovered on a large sample.
 - `test_runner.py` (fake backend, `sleep` stubbed):
   - 429, 429, ok → ok in 3 attempts.
   - 500 x4 → failed, exit 4.
   - Resume after a simulated crash redoes only the missing clip.
-  - Cache hit → `cached`, no transcriber call, raw file written.
+  - An existing `raw/<clip_id>.json` → the clip is `skipped`, no transcriber call; `--force` sends it again.
   - 8 workers equal 1 worker in output; `workers>8` is clamped.
   - Run-manifest mismatch → exit 2.
   - `AuthOrQuotaError` → exit 5, nothing further submitted.
   - A `malformed` response is rejected by `validate_response`; `empty` is scored D=N.
 - `test_elevenlabs.py` (`responses`):
   - The multipart body carries every param (booleans lowercase), has the `xi-api-key` header, and has no `temperature`.
-  - 200 books once. ReadTimeout books once and is not retried (clip failed, exit 4). ConnectTimeout is retried and never booked.
-  - 429 then 200 books once.
-  - 401 → exit 5, nothing booked.
-  - Malformed 200 → booked, not cached, not retried.
-  - Gates (zero HTTP calls in each): no `--max-audio-minutes` → exit 2; missing key → exit 2; insufficient ledger → exit 3.
+  - 200 → ok. ReadTimeout is not retried (clip failed, exit 4). ConnectTimeout is retried.
+  - 429 then 200 → ok on the second attempt.
+  - `wire_params` turns bools into lowercase strings.
+  - 401 → exit 5.
+  - Malformed 200 → clip failed, not retried, no raw file.
+  - Gates (zero HTTP calls in each): no `--max-audio-minutes` → exit 2; missing key → exit 2; clips longer in total than the cap → exit 2.
   - The key never appears in logs or the manifest.
-- `test_ledger.py`: `charge_credits(40)==231`, `(20)==116`, `(60)==347`; `settle` concurrency stress with 10 threads (spent + remaining stays consistent); persistence on restart; the period-start filter; `credits_already_used` offset.
 - `test_e2e_dummy.py`: dummy set with `speakers_per_region=10`, `clips_per_region=20`, `words=100`, `seconds=4` (6 x 20 x 4 s = 8 min, under the 10.0 min pilot cap). Run select → transcribe (fake) → score → stats. Assert that two runs give byte-identical CSVs, that each region's read WER is within 0.03 of its configured fake rate, and that CIs are present (n≥5).
 
 ## 12. Build order with acceptance checks (AUTO = scripted, MANUAL = human)
@@ -482,15 +437,15 @@ Output CSVs in `results/<run_id>/` (floats via `fmt_float`, booleans `true/false
 - **S1 Normalise and score.** `numbers`, `normalise`, `score`, `normalise.csv`. AUTO: `test_normalise`, `test_numbers`, `test_score` pass.
 - **S2 Stats.** AUTO: `test_stats` passes.
 - **S3 Manifests, dummy data and select.** AUTO: `ukstt make-dummy-data --out dummy`; `ukstt build-manifest --in dummy/manifests/clips_in.csv --out dummy/manifests/clips.csv --report dummy/manifests/validation_report.csv` exits 0; `ukstt select --clips dummy/manifests/clips.csv --stage pilot` returns the pilot clips under 10.0 min; `test_manifest` passes.
-- **S4 Fake, cache and runner** (`ledger=None` legal for fake only; real with None raises). AUTO: `test_cache`, `test_fake`, `test_runner` pass; `ukstt transcribe --clips dummy/manifests/pilot.csv --run-id dummy-pilot-001` gives one `ok` row per pilot clip, and a second invocation makes 0 transcriber calls.
+- **S4 Fake and runner.** AUTO: `test_fake` and `test_runner` pass; `ukstt transcribe --clips dummy/manifests/pilot.csv --run-id dummy-pilot-001` gives one `ok` row per pilot clip, and a second invocation sends nothing (all `skipped`).
 - **S5 End to end on dummy.** `aggregate.py`, CLI score and stats. AUTO: `test_e2e_dummy` passes; `results/dummy-pilot-001/` has all five CSVs; with 2 speakers per region every pilot `low_n` is `true` and CIs are empty.
 - **S5b Notebook.** `notebooks/results.ipynb`, built with `nbformat` and committed with outputs cleared. First cell sets `RUN_ID` (default `dummy-pilot-001`). Cells: (1) load `results/<RUN_ID>/*.csv` and `runs/<RUN_ID>/clips.csv` with pandas; (2) bar chart of WER by region, one panel per `task`, `ci_lo`/`ci_hi` error bars where present, bars hatched when `low_n`; (3) stacked substitution/deletion/insertion rates per region; (4) strip plot of speaker WER per region; (5) top error pairs per region as a table; (6) a clip browser: for each clip in `runs/<RUN_ID>/clips.csv` show `IPython.display.Audio(audio_path)`, the reference, and the hypothesis (`runs/<RUN_ID>/raw/<clip_id>.json["text"]`) side by side with differing words highlighted. Demo clips appear in (6) even without a reference. AUTO: `jupyter nbconvert --to notebook --execute notebooks/results.ipynb` succeeds on the dummy run. MANUAL: you open it and the charts and players look right.
-- **S6 Ledger, ElevenLabs and gate.** AUTO: `test_ledger` and `test_elevenlabs` pass; `ukstt transcribe --backend elevenlabs --clips dummy/manifests/smoke.csv --run-id x` with no `--max-audio-minutes` exits 2 with zero network calls; `ukstt ledger show` works on an empty ledger. MANUAL: reconcile `credits_already_used` with the ElevenLabs dashboard.
-- **S7 Real smoke (attended; key in `.env.local`; needs the first real clips).** MANUAL/AUTO: HTTP 200; `raw/*.json` has `text` and `words[]`; the ledger charge equals `charge_credits(duration_s)` for the clip; the log status is `ok`. If 401/402/403: stop and report that the free key cannot call STT. No retry loop.
+- **S6 ElevenLabs and gate.** AUTO: `test_elevenlabs` passes; `ukstt transcribe --backend elevenlabs --clips dummy/manifests/smoke.csv --run-id x` with no `--max-audio-minutes` exits 2 with zero network calls.
+- **S7 Real smoke (attended; key in `.env.local`).** MANUAL/AUTO: HTTP 200; `raw/*.json` has `text` and `words[]`; the log status is `ok`. If 401/402/403: stop and report that the key is rejected or the free key cannot call STT. No retry loop.
 - **S8 Real pilot, then demo only if `manifests/demo_in.csv` exists (the dataset clips are already in `data/audio/`; the demo set is optional, so skip it silently when absent).**
-  - AUTO: every pilot clip `ok` or `cached`; cumulative ledger delta since S7 <= the sum of per-clip charges; `score` and `stats` write all five CSVs; every row has `low_n=true` unless a region has >=5 speakers. Demo clips are `ok` with status `no_reference` in scoring.
+  - AUTO: every pilot clip `ok` (or `skipped` on a resume); `score` and `stats` write all five CSVs; every row has `low_n=true` unless a region has >=5 speakers. Demo clips are scored as `no_reference` unless you supplied transcripts.
   - MANUAL: open the notebook on `pilot-real-001` and `demo-real-001`; listen to 3 clips and check the alignments; southern WER above 0.25 means investigate (soft).
-- **S9 Approval gate for the full study.** No code. Give the user the pilot tables, the §9 numbers and a per-region speaker and minutes estimate. Proceed only on an explicit yes with a plan that has enough credits.
+- **S9 Approval gate for the full study.** No code. Give the user the pilot tables, the §9 numbers and a per-region speaker and minutes estimate. Proceed only on an explicit yes, on a paid plan.
 
 S1–S5b need no audio and no key. S7 and S8 need the dataset clips (already fetched) and your key in `.env.local`.
 
@@ -499,7 +454,7 @@ S1–S5b need no audio and no key. S7 and S8 need the dataset clips (already fet
 - **Source:** `ylacombe/english_dialects` on Hugging Face, a copy of OpenSLR SLR83 (Google). License `cc-by-sa-4.0` (HF tags and card). Attribution and share-alike apply if clips are redistributed. 17,877 rows, 8.98 GB in total; we use the datasets-server rows API for a few clips, not the full download.
 - **Fields:** `line_id`, `audio`, `text`, `speaker_id` (int). Transcripts are capitalised, with no punctuation, and numbers are mostly spelled out; 3 of the 36 fetched references contain digits (checked 2026-11-03). Read sentences only.
 - **Subsets (config names):** `irish_male` 450 rows, `midlands_female` 246, `midlands_male` 450, `northern_female` 750, `northern_male` 2,097, `scottish_female` 894, `scottish_male` 1,649, `southern_female` 4,161, `southern_male` 4,331, `welsh_female` 1,199, `welsh_male` 1,650. There is no `irish_female`.
-- **Speaker IDs repeat across subsets** (for example 2484, 3397 and 4310 appear in Irish, Midlands, Northern, Scottish and Welsh; 12484 in both Welsh subsets). Whether these are the same people is UNKNOWN. The importer therefore keys a speaker as `<region>_<speaker_id>` (e.g. `scottish_4310`) so nothing collides. Speaker counts per region are therefore by this key, and could be inflated or deflated if IDs are reused or shared.
+- **Speaker IDs repeat across subsets** (for example 2484, 3397 and 4310 appear in Irish, Midlands, Northern, Scottish and Welsh; 12484 in both Welsh subsets). These are almost certainly different people: the number is only unique within a subset. The importer keys a speaker as `<region>_<speaker_id>` (e.g. `scottish_4310`) so nothing collides. Because the pilot uses male subsets only, the key is unique per speaker. A female subset sharing an ID with a male one would need a gender in the key; not needed now.
 - **Audio:** WAV, 48 kHz, mono, 16-bit (the 36 fetched clips). Passes the PCM16 mono >=16 kHz rule with no conversion.
 - **Fetched sample (`scripts/fetch_english_dialects_samples.py`):** male subsets, 2 speakers per label (most-seen in 8 sampled windows), up to 3 clips each of at most 12 s: 36 clips, 192 s (3.2 min), 6 clips and about 32 s per label. The script writes `data/audio/<clip_id>.wav`, `references/<clip_id>.txt` and `manifests/clips_in.csv`, with `clip_id = <region>_<speaker_id>_<line_id lowercase>`. It retries on HTTP 429 and 5xx (the server rate-limits).
 - **Known limits:** read speech only, so no spontaneous stratum; dialect labels are self-identified and coarse; a handful of speakers per label in the sample; sentences were chosen to elicit accent differences (place names, airlines, personal names), which may be harder than ordinary speech; the dataset is public and may be in the model's training data.

@@ -9,7 +9,7 @@ The clip file format the code needs is in [implementation-plan.md](implementatio
 - **Not in it:** Scouse, Geordie, Lancashire, Yorkshire, Northern Ireland, SSBE. There is **no Yorkshire label**: any Yorkshire speakers are inside "Northern" and cannot be separated (no town is given). "Southern" is self-identified Southern English, used as the comparison group instead of SSBE.
 - **Content:** read sentences only, written to elicit accent differences (place names, airlines, personal names, plus sentences shared with other corpora). Transcripts are capitalised and unpunctuated; numbers are mostly spelled out (3 of the 36 fetched references contain digits, which the normaliser handles).
 - **Size:** 17,877 clips, 8.98 GB. We never download it all. The fetch script pulls a few clips through the Hugging Face datasets-server API.
-- **Speaker IDs** repeat across subsets, so we key speakers as `<label>_<id>`. Whether a repeated ID is the same person is unknown.
+- **Speaker IDs** repeat across subsets (the same number appears under different dialects). They are almost certainly different people: the number is only unique within a subset. We key speakers as `<label>_<id>` so they never collide.
 
 ## Already fetched
 `python3 scripts/fetch_english_dialects_samples.py` (needs no API key) wrote:

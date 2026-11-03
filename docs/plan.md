@@ -14,7 +14,7 @@ Dropped from the earlier draft: "do public-dataset results match own recordings"
 WER will be higher for stronger regional accents and dialect vocabulary than for the Southern English comparison group. ElevenLabs states English is in its "Excellent (<=5% WER)" tier overall but publishes no per-accent figures.
 
 ## Constraint that shapes everything
-The free ElevenLabs key allows about 10,000 credits a month, roughly 30 minutes of audio at about 330 credits per minute. So the code is developed against a fake backend, every real response is cached, and real calls are gated by a ledger. The free key's access to the STT API is unverified until the real smoke test (S7).
+The free ElevenLabs key allows about 10,000 credits a month, roughly 30 minutes of audio at about 330 credits per minute. So the code is developed against a fake backend, and real calls need an explicit flag and a minutes cap. Credits are not counted in code (no ledger, no cache; added only if needed): check the ElevenLabs dashboard. The free key's access to the STT API is unverified until the real smoke test (S7).
 
 ## Phases (build order S0 to S9, details and acceptance checks in implementation-plan.md section 12)
 | Phase | Steps | Needs recordings? | Needs API key? |
@@ -23,16 +23,16 @@ The free ElevenLabs key allows about 10,000 credits a month, roughly 30 minutes 
 | Normalise, score, stats | S1, S2 | no | no |
 | Manifests, dummy data, fake backend, runner, end to end on dummy data | S3 to S5 | no | no |
 | Notebook with graphs and audio players | S5b | no (dummy data) | no |
-| Ledger, real backend, gates | S6 | no (mocked HTTP) | no |
+| Real backend and gate | S6 | no (mocked HTTP) | no |
 | Real smoke test | S7 | already fetched (36 dataset clips) | yes |
 | Real pilot, then optional demo | S8 | dataset clips fetched; demo only if you supply samples | yes |
 | Approval gate for a full study | S9 | n/a | n/a |
 
 ## Budget (credits; details in implementation-plan.md section 9)
-- 346.5 credits per minute of audio on the ledger basis (includes a 5% margin), rounded up per clip.
-- Pilot: 36 clips, 192 s (3.2 min) = about 1,110 credits plus per-clip rounding (about 1,150). Cap 10.0 min = 3,465 credits. The smoke-test clip is a pilot clip, so the cache reuses it.
+- About 330 credits per minute of audio (pricing page, unverified). Not enforced in code.
+- Pilot: 36 clips, 192 s (3.2 min) = about 1,060 credits. The smoke-test clip is a pilot clip, so it is sent twice (a few seconds).
 - Demo set (your own samples): under 3 minutes = under 1,040 credits.
-- Reserve after both: about 7,800 credits at nominal sizes (about 5,500 if both hit their caps). A larger second fetch of the same dataset fits in it.
+- That leaves roughly 7,900 credits of the 10,000 after the pilot and a 3-minute demo set.
 - A full study of about 7.5 h = about 148,500 credits. It cannot run on a free key and needs your approval and a paid plan.
 - Dollar figures are unverified and not used in any decision.
 
