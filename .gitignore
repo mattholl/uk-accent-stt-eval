@@ -1,0 +1,12 @@
+.env
+# Local secrets written by `elevenlabs onboard`
+/.env.local
+
+# data and run outputs (see implementation plan)
+/data/
+/cache/
+/runs/
+/ledger/
+/results/
+/dummy/
+/recordings/

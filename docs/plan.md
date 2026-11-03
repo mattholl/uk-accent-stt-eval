@@ -1,0 +1,48 @@
+# Plan
+
+Details live in [implementation-plan.md](implementation-plan.md), which wins on any conflict.
+
+## Research questions
+1. What is Scribe v2's WER on regional UK and Irish English, overall and per region?
+2. How does WER differ by dialect label against the Southern English comparison group? Labels (from the dataset): `southern` (comparison), `midlands`, `northern`, `scottish`, `welsh`, `irish`. Scouse, Geordie, Lancashire, Yorkshire, Northern Ireland and SSBE have no source in this dataset.
+3. Which error types dominate per label (substitutions of place and personal names, deletions, insertions)? Answered descriptively from `error_pairs.csv`.
+4. (Dropped for the pilot: the dataset has read speech only, so there is no read vs spontaneous comparison.)
+
+Dropped from the earlier draft: "do public-dataset results match own recordings" (the pilot uses the open dataset; your own samples are a demo set with no statistics), and the finer regions Scouse, Geordie, Lancashire, Yorkshire, Northern Ireland and SSBE (no source).
+
+## Hypothesis (to test, not assumed)
+WER will be higher for stronger regional accents and dialect vocabulary than for the Southern English comparison group. ElevenLabs states English is in its "Excellent (<=5% WER)" tier overall but publishes no per-accent figures.
+
+## Constraint that shapes everything
+The free ElevenLabs key allows about 10,000 credits a month, roughly 30 minutes of audio at about 330 credits per minute. So the code is developed against a fake backend, every real response is cached, and real calls are gated by a ledger. The free key's access to the STT API is unverified until the real smoke test (S7).
+
+## Phases (build order S0 to S9, details and acceptance checks in implementation-plan.md section 12)
+| Phase | Steps | Needs recordings? | Needs API key? |
+|---|---|---|---|
+| Scaffold | S0 | no | no |
+| Normalise, score, stats | S1, S2 | no | no |
+| Manifests, dummy data, fake backend, runner, end to end on dummy data | S3 to S5 | no | no |
+| Notebook with graphs and audio players | S5b | no (dummy data) | no |
+| Ledger, real backend, gates | S6 | no (mocked HTTP) | no |
+| Real smoke test | S7 | already fetched (36 dataset clips) | yes |
+| Real pilot, then optional demo | S8 | dataset clips fetched; demo only if you supply samples | yes |
+| Approval gate for a full study | S9 | n/a | n/a |
+
+## Budget (credits; details in implementation-plan.md section 9)
+- 346.5 credits per minute of audio on the ledger basis (includes a 5% margin), rounded up per clip.
+- Pilot: 36 clips, 192 s (3.2 min) = about 1,110 credits plus per-clip rounding (about 1,150). Cap 10.0 min = 3,465 credits. The smoke-test clip is a pilot clip, so the cache reuses it.
+- Demo set (your own samples): under 3 minutes = under 1,040 credits.
+- Reserve after both: about 7,800 credits at nominal sizes (about 5,500 if both hit their caps). A larger second fetch of the same dataset fits in it.
+- A full study of about 7.5 h = about 148,500 credits. It cannot run on a free key and needs your approval and a paid plan.
+- Dollar figures are unverified and not used in any decision.
+
+## Hypothesis testing in the pilot
+None. With 2 speakers per region the pilot reports pooled WER and the difference from baseline, flagged `low_n`. Bootstrap confidence intervals appear only from 5 speakers per region. Permutation tests and Holm correction are deferred to a funded full study.
+
+## Deliverables
+- Scripts, config and tests (package `ukstt`)
+- Raw API responses and reference transcripts
+- Five CSVs per run: `utterance_scores`, `speaker_scores`, `region_summary`, `pairwise_vs_baseline`, `error_pairs`
+- `notebooks/results.ipynb`: pandas and matplotlib graphs (WER by region, error mix, per-speaker spread, top error pairs) plus a clip browser with audio players
+- Audio stays on disk locally, so you can listen
+- No written report for now ("just give me the data")

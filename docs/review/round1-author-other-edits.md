@@ -1,0 +1,66 @@
+# Round 1: other doc edits and unsure items (from author)
+
+=====OTHER DOC EDITS=====
+- **README.md**
+  - Status: "Planning → implementation plan drafted".
+  - Add `docs/implementation-plan.md` to the Docs list.
+  - Scope: "regional UK English only" becomes "UK regions plus Republic of Ireland (irish) and Northern Ireland (ni)".
+  - Add a 5-line quick start: `make-dummy-data`, `build-manifest`, `select`, `transcribe` (fake), `score`/`stats`.
+  - State that fake is the default backend and the real API is gated.
+  - State that output is CSV data only.
+- **docs/plan.md**
+  - RQ2: replace the region list with the 9 `region_id`s. London/Cockney is not in scope; Midlands/Northern/Southern appear only as SLR83 coarse groups.
+  - Replace "Phases" with S0–S10 pilot-first.
+  - Add: language fixed to eng; read and spont analysed separately; deliverable is CSV tables, with no plots or final report.
+  - RQ4 becomes "own vs SLR83 for welsh/scottish/irish (descriptive)".
+  - Add the budget summary (P1, §9 numbers).
+  - Note that the full study needs user approval and a paid plan.
+- **docs/methodology.md**
+  - System under test: language_code=eng only; remove the auto-detect alternative.
+  - Fix `no_verbatim=false`, `seed=20261102`, `timestamps_granularity=word`.
+  - Audio prep: no resampling, PCM16 mono WAV >=16 kHz, `file_format=other`; remove the "derive 16 kHz copy".
+  - Replace the normalisation paragraph with the 11 ordered rules. Own normaliser; `jiwer` is only a cross-check. Remove the Whisper normaliser suggestion.
+  - Say that register contractions are mapped and dialect words never are.
+  - Metrics: remove the language-ID mismatch rate. Add the S/D/I tie-break and the no-clipping rule.
+  - Stats: replace with the §10 spec (B, seed, indices, permutation exact/MC, Holm family, low_n).
+  - Add validity risks: reference anchoring when drafted from Scribe output, SLR83 labels are self-identified, SLR83 is male-only in this design, and the pilot cannot be significant at n=2.
+- **docs/data-sources.md**
+  - Replace the SLR83 row with the verified facts: CC BY-SA 4.0, read only, labels and line counts, no Scouse/Geordie/Lancs/Yorks/NI, Southern ≠ SSBE, Northern not pooled.
+  - Mark Common Voice, IViE and ABI-1 "not used in v1, unverified".
+  - Replace the "Consent & privacy" bullet: no sign-off required (decision); keep pseudonymous IDs and the note that ElevenLabs logging defaults on.
+  - Add the drop-folder contract (§5), `speakers.csv` columns, the reference style guide and the pilot read passage (with the licence caveat).
+  - "Metadata per speaker" becomes the new columns.
+  - Change ">=10 speakers/region" to "pilot 2, full study about 10, needs approval".
+- **docs/elevenlabs-api-notes.md**
+  - Add the exact params sent (P5) and the multipart/boolean-string convention.
+  - Add the status mapping and retry policy, the 8-concurrency cap and the timeouts (10 s connect, 120 s read).
+  - Add credits: about 330/min, ledger x1.05, booked on 200/timeout/malformed.
+  - Add the free-key caveat (STT access unverified until S7).
+  - Add the response fields consumed (`text`, `words[].text`, `words[].type`, `language_code`) and the hypothesis extraction rule.
+  - Add the `seed` note: best-effort determinism, use `--refresh` for a variance repeat.
+  - Note that `diarize` defaults to false.
+- **docs/open-questions.md**
+  - Tick the decided items and reword the first item to the 9 regions. Remove the stray "Standrad" line.
+  - The `no_verbatim` answer is "false, fillers stripped by list".
+  - Fix the budget line: the cap is about 28.9 min under the ×1.05 ledger, not 30. Pilot + spot is 20 min, the smoke clip is reused, reserve about 8.9 min.
+  - Add open items:
+    - who records the own data;
+    - whether the free key can call STT (S7);
+    - the Comma Gets a Cure licence, and the Rainbow fallback;
+    - the SLR83 zip names and speaker-ID rule;
+    - register-contraction mapping approval;
+    - full-study approval and funding.
+=====UNSURE=====
+- SLR83 speaker ID is assumed to be the first two `_` parts of `FileID` (e.g. `wef_12484`). It is unconfirmed, so `slr83 inspect` (S9) checks it. The fallback is whatever distinguishes speakers in the zip file names.
+- SLR83 zip names and sizes are unknown. They are probably `<label>_english_<gender>.zip` under `https://openslr.org/resources/83/`. `slr83 fetch` prints the size first, and manual download into `data/raw/slr83/` is the fallback. Sample rate and bit depth are also unknown. Concatenation fails loudly if the params differ, and there is no resampler.
+- The licence of "Comma Gets a Cure" is unchecked. The Rainbow Passage is the fallback. The excerpt length for 40 s (about 100 words) is a guess.
+- Free key access to STT is unverified. S7 settles it. The credit rate (about 330/min) is also from pricing pages, so the ledger should be reconciled against the dashboard after S7.
+- The billing period start. `ledger_period_start` is manual, and the real reset could be an anniversary date.
+- The statement "~$1.65 at $0.22/h for 7.5 h" is not consistent with 330 credits/min (148,500 credits). The plan pricing needs checking before the full-study approval.
+- Concurrency limit of 8 on free tier is assumed from the brief. A 429 backoff handles violations anyway.
+- Mapping `gonna/wanna/gotta/kinda/sorta/cos` is my reading of "dialect words never mapped". If the user wants those left unmapped, delete the `register` rows. Speaker-level effects of this on WER are not measured.
+- Timeouts are booked as charged (conservative). The real server behaviour is unknown, so budget may be slightly over-counted.
+- Python version: only 3.14.9 has been seen. `>=3.11` is assumed for `tomllib` and untested on 3.11–3.13.
+- "SSBE" screening of baseline speakers relies on self-description. There is no listener verification in the plan.
+- Year-pair reading rules (rule 4) and "and" in British cardinals can mismatch a transcriber's own number style. The style guide asks for words to avoid this.
+=====END=====
