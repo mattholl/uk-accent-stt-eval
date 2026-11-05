@@ -1,0 +1,19 @@
+[params]            # native types; sent via wire_params()
+model_id = "scribe_v2"
+language_code = "eng"
+tag_audio_events = false
+timestamps_granularity = "word"
+diarize = false
+no_verbatim = false
+seed = 20261102
+file_format = "other"
+
+[http]
+max_retries = 3
+connect_timeout_s = 10
+read_timeout_s = 120
+default_workers = 4
+
+[paths]
+runs_dir = "runs"
+results_dir = "results"

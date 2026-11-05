@@ -1,6 +1,6 @@
 # UK & Irish Regional Accent Accuracy: ElevenLabs Scribe STT
 
-**Status:** Planning complete (round 3, consistency pass). Ready for a coder. No code yet.
+**Status:** Code built and tested on the fake backend (steps S0 to S6, 414 tests). Not yet run against the real API: that needs a working key in `.env.local` (steps S7 and S8).
 **Created:** 2026-11-02
 
 ## Goal
@@ -22,10 +22,24 @@ Benchmark the transcription accuracy of one model, the ElevenLabs Speech-to-Text
 ## Approach in one paragraph
 Code is built and tested against a fake transcription backend (the default). The real API is gated behind an explicit flag and a `--max-audio-minutes` cap, because the free key allows only about 30 minutes of audio a month. There is no credit ledger and no response cache: a finished clip is simply not sent again when you resume a run. The first real run is a pilot of 36 clips (3.2 minutes, about 1,060 credits) from that dataset: 6 labels x 2 male speakers x 3 clips. The clips are already downloaded to `data/audio/`. Your own informal samples, if you supply any, are a separate optional `demo` set: they are transcribed so you can read and listen, but there is no standard text and no statistics. With about 2 speakers per region the pilot validates the pipeline only. It does not support conclusions about accents. A full study (about 10 speakers per region) needs a paid plan and your approval first.
 
-## Quick start (once built; see build order S0 to S9)
-`ukstt` is the command-line tool this project will build. `pip install -e .[dev]` installs the Python package `ukstt` and registers the `ukstt` command. It does not exist yet, so these commands will not work until step S0 to S5 are coded. The `dummy` commands use made-up audio and a fake transcriber, so they cost nothing.
+## Quick start
+
+`ukstt` is the command-line tool of this project. Run everything from the repo root.
+
+### Set up
 ```
-pip install -e .[dev]
+python3 -m venv .venv
+source .venv/bin/activate                  # or prefix every command with .venv/bin/
+pip install -e '.[dev,notebook]'           # installs the `ukstt` command; drop ",notebook" if you do not want the notebook libraries
+```
+
+### Run the tests (no network, no key needed)
+```
+pytest -q                                  # 414 tests, about 5 s
+```
+
+### Try it on made-up data (free: fake audio, fake transcriber)
+```
 ukstt make-dummy-data --out dummy
 ukstt build-manifest --in dummy/manifests/clips_in.csv --out dummy/manifests/clips.csv --report dummy/manifests/validation_report.csv
 ukstt select --clips dummy/manifests/clips.csv --stage pilot
@@ -33,8 +47,49 @@ ukstt transcribe --clips dummy/manifests/pilot.csv --run-id dummy-pilot-001     
 ukstt score --run-id dummy-pilot-001 --clips dummy/manifests/pilot.csv
 ukstt stats --run-id dummy-pilot-001
 ```
-For the real pilot (after S6), run `ukstt build-manifest` with no flags, then `ukstt select` for each stage. The full command list is in implementation-plan.md section 10.
-The API key goes in `.env.local` as `ELEVENLABS_API_KEY=...` (gitignored) or the `ELEVENLABS_API_KEY` environment variable. Never paste it into chat or commit it.
+
+### Real evals (calls ElevenLabs and uses credits: about 1,100 for the 36-clip pilot)
+The API key goes in `.env.local` as `ELEVENLABS_API_KEY=...` (gitignored), or in the `ELEVENLABS_API_KEY` environment variable. Never paste it into chat or commit it. The 36 pilot clips are already in `data/audio/` (re-fetch with `python3 scripts/fetch_english_dialects_samples.py`).
+```
+ukstt build-manifest                       # validates the 36 clips; writes manifests/clips.csv
+ukstt select --stage smoke
+ukstt transcribe --backend elevenlabs --max-audio-minutes 0.5 --workers 1 --clips manifests/smoke.csv --run-id smoke-001
+ukstt select --stage pilot
+ukstt transcribe --backend elevenlabs --max-audio-minutes 4 --clips manifests/pilot.csv --run-id pilot-001
+ukstt score --run-id pilot-001
+ukstt stats --run-id pilot-001
+```
+Results are in `results/pilot-001/`. Running `transcribe` again with the same `--run-id` sends nothing (finished clips are skipped); add `--force` to send them all again. `--max-audio-minutes` is required for the real backend and is the only spend guard. Before sending, `transcribe` prints `to send: N clips, M.MM min (about C credits at 330 credits/min, unverified; check the dashboard)` for the clips that will actually be sent (resume-aware); the credit figure is an estimate and nothing enforces it.
+
+### Larger runs (more speakers and clips)
+Keep the 36-clip pilot manifest, fetch a different, larger set, and avoid sending the pilot clips again. `--list` first shows how many speakers each subset has (it scans once and caches `data/hf_speakers.json`; no audio). The output below is an example; read your own.
+```
+python3 scripts/fetch_english_dialects_samples.py --list --genders both
+cp manifests/clips_in.csv manifests/clips_in_pilot36.csv               # backup of the old manifest
+python3 scripts/fetch_english_dialects_samples.py --speakers 3 --clips-per-label 20 \
+    --exclude-from manifests/clips_in.csv --out manifests/clips_in_large.csv
+ukstt build-manifest --in manifests/clips_in.csv --in manifests/clips_in_large.csv
+ukstt select --stage pilot --cap-minutes 20                            # the default cap is 10 minutes
+ukstt transcribe --backend elevenlabs --max-audio-minutes 20 --clips manifests/pilot.csv --run-id large-001
+ukstt score --run-id large-001 && ukstt stats --run-id large-001
+```
+`--speakers N` uses at most N speakers per label (those with the most rows); `--clips-per-label N` spreads N clips over them (a label that cannot reach N is reported on stderr and gets what exists); add `--genders both` for the female subsets too (irish has none), and keep `--clips` for a per-speaker count. Female speakers get an `f` in their id (`midlands_f3397`), so they never collide with male ones. The example run holds the 36 pilot clips plus about 120 new ones (about 12 to 15 min); a new run id sends all of them, so read the `to send:` line and the dashboard before spending, and lower `--clips-per-label` if needed. To run only the new clips, build with `--in manifests/clips_in_large.csv` alone.
+
+### Look at the results (notebook)
+```
+jupyter lab                                # opens http://localhost:8888
+```
+Open `notebooks/results.ipynb`, set `RUN_ID` in its first cell (for example `"pilot-001"`) and choose Run, Run All Cells. On a remote machine use `jupyter lab --no-browser --ip=127.0.0.1 --port=8888` and forward the port with `ssh -N -L 8888:127.0.0.1:8888 USER@HOST`.
+
+### Your own samples (optional demo set)
+Put WAVs in `recordings/`, your transcripts in `references/`, list them in `manifests/demo_in.csv` (see docs/data-sources.md), then:
+```
+ukstt build-manifest
+ukstt select --stage demo
+ukstt transcribe --backend elevenlabs --max-audio-minutes 3 --clips manifests/demo.csv --run-id demo-001
+ukstt score --run-id demo-001
+```
+The full command list is in docs/implementation-plan.md section 10.
 
 ## Docs
 - [docs/implementation-plan.md](docs/implementation-plan.md): **source of truth** for the build

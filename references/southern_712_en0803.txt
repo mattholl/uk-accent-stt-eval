@@ -1,0 +1,1 @@
+Using visual data from a camera an object could be camouflaged well enough to avoid detection

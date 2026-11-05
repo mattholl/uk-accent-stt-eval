@@ -1,0 +1,8 @@
+[error_rates]
+southern = 0.03
+midlands = 0.06
+northern = 0.08
+scottish = 0.14
+welsh = 0.08
+irish = 0.07
+unknown = 0.10      # demo clips

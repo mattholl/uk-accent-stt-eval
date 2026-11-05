@@ -1,0 +1,7 @@
+region_id,display_name,slr83_label,is_baseline
+southern,Southern English (self-identified),southern,true
+midlands,Midlands English,midlands,false
+northern,Northern English (coarse),northern,false
+scottish,Scottish English,scottish,false
+welsh,Welsh English,welsh,false
+irish,Irish English,irish,false

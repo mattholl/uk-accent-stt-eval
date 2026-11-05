@@ -58,3 +58,6 @@ Eleven ordered rules, in implementation-plan.md section 6. Summary:
 - Normalisation choices (register contractions, filler list, number style) shape WER. They are fixed before scoring and documented, not tuned.
 - Public datasets may overlap model training data (Common Voice especially), which would flatter WER. Another reason the pilot proves the pipeline, not the accents.
 - API determinism is best-effort even with a seed. A repeat run with a changed `seed` (not `--force`, which re-sends the same request) measures variance, if budget allows.
+
+## Known normalisation limitations
+Years are read as cardinals (`1930` becomes "one thousand nine hundred and thirty", while speakers say "nineteen thirty"), `re-mastered` splits into two tokens, `£2.5m` and `£2.5 million` are not handled, and `&` is dropped. These are accepted for the pilot and noted so they are not mistaken for accent effects.

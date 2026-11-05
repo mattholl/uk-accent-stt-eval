@@ -1,0 +1,1 @@
+In one version of this technique a conductive sheet under test is placed between two coils

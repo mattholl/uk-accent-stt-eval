@@ -62,7 +62,7 @@ uk-accent-stt-eval/
   runs/<run_id>/{run_manifest.json,clips.csv,transcribe_log.csv,raw/}   results/<run_id>/…
   src/ukstt/
     __init__.py (__version__="0.1.0")  __main__.py (calls cli.main)  constants.py  config.py  csvio.py  audio.py
-    manifest.py  dummy.py  numbers.py  normalise.py  score.py  stats.py  aggregate.py  cli.py
+    manifest.py  dummy.py  numwords.py  normalise.py  score.py  stats.py  aggregate.py  cli.py
     transcribe/{__init__.py, base.py, fake.py, elevenlabs.py, runner.py}
   notebooks/results.ipynb   # pandas + matplotlib; reads results/<run_id>/*.csv, clips.csv, runs/<run_id>/raw/*.json
   tests/
@@ -151,7 +151,7 @@ def select_stage(clips_csv: Path, stage: str, out_csv: Path) -> list[dict[str, s
 # dummy.py
 def make_dummy_data(out_dir: Path, clips_per_region: int = 4, speakers_per_region: int = 2, seconds: float = 20, words: int = 50, seed: int = SEED) -> None: ...
 
-# numbers.py
+# numwords.py   (not `numbers.py`: that name shadows the stdlib module)
 def int_to_words(n: int) -> str: ...       # British "and", never emits hyphens: 21 -> "twenty one", 105 -> "one hundred and five"
 def expand_numbers(text: str) -> str: ...
 
@@ -263,7 +263,7 @@ for k in range(max_retries + 1):
     try: return fn()
     except (HttpError with status 429 or >=500, ConnectError) as e:
         if k == max_retries: raise
-        sleep(max(getattr(e, "retry_after", None) or 0, min(30, 2 * 2**k) + random.Random(k).uniform(0, 1)))
+        sleep(max(getattr(e, "retry_after", None) or 0, min(30, 2 * 2**k) + random.random()))
 ```
 - `max_retries=3`, so 4 attempts. The fake backend uses the same wrapper. Tests pass `sleep=lambda s: None`.
 - NOT retried: `ReadTimeout`, `MalformedResponse`, `AuthOrQuotaError`, other 4xx. They fail the clip immediately (`AuthOrQuotaError` aborts the run).
@@ -316,13 +316,13 @@ for k in range(max_retries + 1):
 
 - **Alignment.** Levenshtein DP with unit costs, reference tokens on the rows. Backtrace from `(n, m)`: if `i==0` emit I; if `j==0` emit D; otherwise take the first that applies: (1) match if `ref[i-1]==hyp[j-1]` and `d[i][j]==d[i-1][j-1]`; (2) substitution if `d[i][j]==d[i-1][j-1]+1`; (3) deletion if `d[i][j]==d[i-1][j]+1`; (4) insertion. Reverse the ops afterwards.
 - `WER = (S+D+I)/N`, **never clipped**. An empty hypothesis with N>0 gives D=N, WER=1.0.
-- **N=0.** `wer` is empty (NA). `build-manifest` already rejects own references with zero words (`E_REF_EMPTY_AFTER_NORM`). Scoring raises `ValueError` if `n_ref==0` for any clip, so there is no `ref_empty` status.
+- **N=0.** `align` returns `wer=None` (library level, tested). `wer` is empty (NA) in a CSV cell only for `failed`, `missing`, `skipped_budget` and `no_reference` rows. `build-manifest` already rejects own references with zero words (`E_REF_EMPTY_AFTER_NORM`). Scoring raises `ValueError` if `n_ref==0` for any clip, so there is no `ref_empty` status.
 - **CER is not computed in the pilot.**
 - **Demo clips (`set=demo`)** with a reference get an `ok` row in `utterance_scores.csv` (their own WER, for the notebook) but are never written to `speaker_scores.csv` or any later table. `stats` therefore only ever sees pilot clips. Demo clips without a reference get `no_reference`.
 - **Failed, missing or unreferenced clips** get `status=failed|missing|no_reference` in `utterance_scores.csv`. They are excluded from WER and counted in `n_excluded`. They are never silently dropped. `no_reference` clips (demo clips without a transcript) are transcribed and visible in the notebook but never scored.
 - **Aggregation.** Micro average (sum of errors / sum of words), never the mean of per-clip WERs. The unit in all statistics is the speaker.
 - **Error pairs.** From alignment ops: `sub` (ref→hyp), `del` (ref→empty), `ins` (empty→hyp). Sorted by `-count, ref_word, hyp_word` (row order is the rank).
-- `n_digit_tokens_hyp` is counted on the raw hypothesis text before rule 5.
+- `n_digit_tokens_hyp` = the number of whitespace-separated tokens of the raw hypothesis text (before rule 1) that contain at least one character for which `str.isdigit()` is true.
 
 ## 8. Statistics (pilot)
 
@@ -355,7 +355,7 @@ ukstt --version
 ukstt make-dummy-data --out dummy [--clips-per-region 4] [--speakers-per-region 2] [--seconds 20] [--seed 20261102]
 ukstt build-manifest [--in manifests/clips_in.csv --in manifests/demo_in.csv ...] [--regions config/regions.csv] [--out manifests/clips.csv]
       [--report manifests/validation_report.csv] [--strict]
-ukstt select --clips manifests/clips.csv --stage {smoke|pilot|demo} [--out <clips dir>/<stage>.csv]
+ukstt select --clips manifests/clips.csv --stage {smoke|pilot|demo} [--out <clips dir>/<stage>.csv] [--cap-minutes X]   # X: pilot only
 ukstt transcribe --clips manifests/pilot.csv --run-id pilot-fake-001 [--backend fake|elevenlabs]
       [--max-audio-minutes N] [--workers N] [--force] [--fake-config config/fake.toml]
 ukstt score --run-id pilot-fake-001 --clips manifests/pilot.csv [--out results/<run_id>] [--accept-normalise-change]
@@ -391,7 +391,7 @@ Output CSVs in `results/<run_id>/` (floats via `fmt_float`, booleans `true/false
   - `"'cause"` → `["because"]`; `"yes,no"` → `["yes","no"]`; `"7:30"` → `["seven","thirty"]`; `"uh-huh"` → `[]`.
   - `"gonna"` → `["going","to"]`; `nowt`, `wee`, `aye`, `ah` unchanged. `"1984"` → cardinal words. `"007"` and `"5pm"` untouched.
   - Idempotence: `normalise(" ".join(normalise(x))) == normalise(x)`.
-- `test_numbers.py`: 0, 13, 21 (`twenty one`), 100, 105, 1001, 999999, 1,000,000.
+- `test_numwords.py` (module `ukstt.numwords`): 0, 13, 21 (`twenty one`), 100, 105, 1001, 999999, 1,000,000.
 - `test_score.py`: hand cases.
   - identical → 0; `the cat sat` vs `the dog sat` → S=1, WER 1/3; `the cat sat on the mat` vs `the cat sat` → D=3, WER 0.5; `hello` vs `hello there you` → I=2, WER 2.0; `a b c` vs empty → D=3, WER 1.0.
   - N=0 raises `ValueError` at the scoring layer. `align([], …)` gives `wer is None`.
@@ -434,7 +434,7 @@ Output CSVs in `results/<run_id>/` (floats via `fmt_float`, booleans `true/false
   - Create pyproject, `.env.sample`, `.gitignore`, config skeletons, `__main__.py`, `tests/test_version.py`.
   - Verify every pin (runtime, dev and `[notebook]`) with `pip index versions`.
   - AUTO: `pip install -e .[dev]` in a fresh venv; `pytest -q` passes; `ukstt --version` prints `0.1.0`; `python -m ukstt --version` works; `git check-ignore .env .env.local` succeeds and `.env.sample` is not ignored.
-- **S1 Normalise and score.** `numbers`, `normalise`, `score`, `normalise.csv`. AUTO: `test_normalise`, `test_numbers`, `test_score` pass.
+- **S1 Normalise and score.** `numwords`, `normalise`, `score`, `normalise.csv`. AUTO: `test_normalise`, `test_numwords`, `test_score` pass.
 - **S2 Stats.** AUTO: `test_stats` passes.
 - **S3 Manifests, dummy data and select.** AUTO: `ukstt make-dummy-data --out dummy`; `ukstt build-manifest --in dummy/manifests/clips_in.csv --out dummy/manifests/clips.csv --report dummy/manifests/validation_report.csv` exits 0; `ukstt select --clips dummy/manifests/clips.csv --stage pilot` returns the pilot clips under 10.0 min; `test_manifest` passes.
 - **S4 Fake and runner.** AUTO: `test_fake` and `test_runner` pass; `ukstt transcribe --clips dummy/manifests/pilot.csv --run-id dummy-pilot-001` gives one `ok` row per pilot clip, and a second invocation sends nothing (all `skipped`).
@@ -447,6 +447,18 @@ Output CSVs in `results/<run_id>/` (floats via `fmt_float`, booleans `true/false
   - MANUAL: open the notebook on `pilot-real-001` and `demo-real-001`; listen to 3 clips and check the alignments; southern WER above 0.25 means investigate (soft).
 - **S9 Approval gate for the full study.** No code. Give the user the pilot tables, the §9 numbers and a per-region speaker and minutes estimate. Proceed only on an explicit yes, on a paid plan.
 
+### Batch 1 review rulings (R1–R9, decided after the first reviewer and tester pass; they override the text above)
+
+- **R1 (`stats.bootstrap_ci`).** Drop speakers with `n_ref == 0` before the `MIN_SPEAKERS_CI` check; raise `ValueError` for any speaker with `n_ref < 0` or `errors < 0`. Sort speakers by `speaker_id` before resampling so the input order cannot change the interval. Add a test with zero-word speakers.
+- **R2 (`normalise.load_normalise_csv`).** Open with `utf-8-sig`. Raise `ValueError` (message names the file and line) for: header not exactly `from,to,class`; no data rows; a row with the wrong number of columns; an unknown class; a `from` that is not already in normalised single-token form (`normalise(from, {}, frozenset())` must equal `[from]`); a duplicate `from`; a `to` whose tokens are not clean (must survive normalise unchanged), are a filler, or are themselves a `from` key (no chains or loops). Tests for each.
+- **R3 (`config.load_config`).** Range checks: `max_retries >= 0`, `default_workers >= 1`, `connect_timeout_s` and `read_timeout_s` finite and > 0, `credits`-style keys are gone (P12), seed 0..2147483647. Prefix every `ValueError` with the config path.
+- **R4 (`numwords._NUMBER`).** A number must not touch a letter, digit or `.`-joined digit on either side, and `_` counts as a separator: use `(?<![^\W_])` before and `(?![^\W_])` after (no `(?<![0-9]\.)` lookbehind: `3.5.2` stays `three point five.two`). A number with a leading zero and decimals (`01.8`) speaks its decimals (`01 point eight`) so that a second pass changes nothing. Known, accepted idempotence gaps: a decimal followed by an ordinal suffix (`6.6nd`) and a ten-digit-plus number with decimals; they never occur in read sentences. Cap digit strings at 9 digits (longer runs are left untouched, no `int()` on them). Give `_PERCENT` a `(?<![0-9,.])` lookbehind so it is not quadratic. After `.lower()` apply NFKC again. Add the tester's counterexamples (`.5`, `0_1`, `1_000`, `x.5`, `"1"*4301`, `İstanbul`) as tests, and a seeded fuzz test of the idempotence property over digits, `.`, `_`, letters and spaces.
+- **R5 (`numbers.py` renamed).** The module is `ukstt/numwords.py` and its tests `tests/test_numwords.py`.
+- **R6 (packaging).** `pyproject.toml` has a `[build-system]` table (setuptools), the `[notebook]` extras are pinned to versions verified with `pip index versions` (the reviewer found `pandas==3.1.0`, `matplotlib==3.11.2`, `jupyter==1.1.1`, `nbformat==5.11.1`; re-verify), and the `pythonpath = ["src"]` pytest setting is removed once the package is installed editable in `.venv`.
+- **R7 (cli).** Delete the stub `add_subcommands` and the unused `common` parent until S3 adds the first subcommand. Export `DEFAULT_CONFIG` from `config.py` once.
+- **R8 (tests).** Add `test_shipped_tables_agree_with_constants` (`regions.csv` ids equal `PILOT_REGIONS` in order; the single baseline row is `BASELINE`; `fake.toml` keys equal `PILOT_REGIONS + ("unknown",)`). Add the guard check to `conftest.py` and use `pytest.raises(SystemExit)` in `test_version.py`.
+- **R9 (known limitations, record in methodology.md, not code).** Years are read as cardinals (`1930` → "one thousand nine hundred and thirty"), `re-mastered` splits into two tokens, `£2.5m` and `£2.5 million` are not handled, and `&` is dropped.
+
 S1–S5b need no audio and no key. S7 and S8 need the dataset clips (already fetched) and your key in `.env.local`.
 
 ## Appendix: pilot dataset notes (VERIFIED 2026-11-03)
@@ -458,3 +470,37 @@ S1–S5b need no audio and no key. S7 and S8 need the dataset clips (already fet
 - **Audio:** WAV, 48 kHz, mono, 16-bit (the 36 fetched clips). Passes the PCM16 mono >=16 kHz rule with no conversion.
 - **Fetched sample (`scripts/fetch_english_dialects_samples.py`):** male subsets, 2 speakers per label (most-seen in 8 sampled windows), up to 3 clips each of at most 12 s: 36 clips, 192 s (3.2 min), 6 clips and about 32 s per label. The script writes `data/audio/<clip_id>.wav`, `references/<clip_id>.txt` and `manifests/clips_in.csv`, with `clip_id = <region>_<speaker_id>_<line_id lowercase>`. It retries on HTTP 429 and 5xx (the server rate-limits).
 - **Known limits:** read speech only, so no spontaneous stratum; dialect labels are self-identified and coarse; a handful of speakers per label in the sample; sentences were chosen to elicit accent differences (place names, airlines, personal names), which may be harder than ordinary speech; the dataset is public and may be in the model's training data.
+
+## Batch 2 review fixes (S3), decided 2026-11-04
+- **R10 (user errors never leak a traceback).** Every `cmd_*` catches `(OSError, ValueError, csv.Error, KeyError)` and prints `error: ...` to stderr with exit 2. `select_stage` checks that `clips.csv` has the columns `clip_id,set,region,duration_s` (ValueError otherwise) and computes the cap minutes BEFORE writing any file. `build_manifest` checks that `regions.csv` has `region_id`. `make_dummy_data` requires finite `seconds > 0`.
+- **R11 (truncated WAV).** `probe_wav` raises `ValueError` ("truncated") if `file_size < n_frames * sampwidth * channels`, so a header lying about its length is `E_AUDIO_FORMAT`.
+- **R12 (empty input).** `build-manifest` exits 2 if an input CSV has no header columns or no data rows in total (all inputs together), and never overwrites `clips.csv` in that case.
+- **R13 (stale output).** When `build-manifest` finds errors it deletes an existing `--out` file so `select` cannot use stale data.
+- **R14 (demo warning).** `W_SINGLE_CLIP_SPEAKER` is not raised for `set=demo` clips (each demo clip is its own speaker by design).
+- **R15 (small helpers).** One `total_minutes(rows)` in `manifest.py` replaces the three copies. The `build-manifest` summary does not count `unknown` as a region.
+- **R16 (tests).** Add the two missing tests: the default `--in` list (with and without `manifests/demo_in.csv`, using `monkeypatch.chdir(tmp_path)`) and the `set == "pilot"` filter in `select_stage` (a southern demo clip whose id sorts first must not appear in `pilot` or `smoke`). Add tests for R10-R14. Make the suite faster: build the default dummy set once per session (session-scoped fixture, copied or read-only) or use short `seconds` in tests; target under 4 s.
+- **R17 (accepted, not coded).** The same `speaker_id` under two regions is not detected: ids are opaque, and the fetch script already writes region-prefixed ids (`scottish_4310`). Non-UTF-8 reference bytes are decoded with replacement. `clips.csv` paths are cwd-relative (run from the repo root). Tests need the repo root as cwd.
+- Plan text fix: `E_REF_MISSING` applies to a non-empty `reference_path` whose file does not exist for both sets; an empty `reference_path` is an error for pilot only. With `--strict`, warnings are promoted to errors, so `clips.csv` is not written.
+
+## Batch 3 review fixes (S4, S6), decided 2026-11-04
+- **R18 (Ctrl-C stops spending).** On `KeyboardInterrupt` (or any BaseException in the pool loop) set `stop`, call `pool.shutdown(wait=True, cancel_futures=True)`, re-raise. Queued clips are not sent.
+- **R19 (`Retry-After`).** Accept the header only if it parses to a finite float `>= 0`; use `min(value, 60)`. Anything else (garbage, HTTP-date, negative, nan, inf) is ignored and the normal backoff applies. The cap lives in `call_with_retry` so both backends and the fake `429` token obey it.
+- **R20 (missing audio never half-runs).** Before any send, every clip to be sent must have an existing audio file, else exit 2 `error: audio file not found: <path>`. `work()` also treats `OSError` as a clip failure (status `failed`, exit 4) and the raw JSON is written with `ensure_ascii=True` so a lone surrogate cannot crash the write.
+- **R21 (gate hardening).** Refuse (exit 2) if `transcriber.name != opts.backend`; `--max-audio-minutes` must be finite and `> 0`. Test: resume a fake run with `--backend elevenlabs` and a cap exits 2 with zero HTTP calls.
+- **R22 (small).** `RUN_ID_RE` is applied with `fullmatch`. `requests.post(..., allow_redirects=False)` (a 3xx is an `HttpError`). The error body stored in the log has the API key replaced by `***`. The log header is written when the file is missing or empty. Delete the `__repr__` override and the redundant `startswith("#")` test in `load_api_key`; reword the "Nothing was sent" docstring (a connection reset after upload may be retried and billed twice; accepted). Test that `Retry-After` is honoured (the sleep value is asserted) and that `inf` and `1e9` are capped/ignored.
+- **R23 (accepted, not coded).** Corrupt-but-existing raw JSON counts as done on resume (use `--force`); no lock against two simultaneous runs of the same run id; clip ids are trusted from `build-manifest`; a partial log line after SIGKILL is tolerated; default workers stays 4 (the free-tier concurrency limit is unverified; if 429s appear, use `--workers 2`).
+- **Note for S5.** A real response's `words[]` also holds `type: "spacing"` (and `audio_event`) items. Score from `raw["text"]` only; the fake returns word items only.
+
+## Batch 4 review fixes (S5, S5b), decided 2026-11-04
+- **R24 (score input checks).** `score_run` raises `ValueError(f"{clip_id}: bad raw file {path}: ...")` (exit 2 via main) when a raw JSON is corrupt, is not an object, or has no string `text`; and `ValueError("duplicate clip_id ...")` for duplicates in the clips file. `stats` before `score` says `error: run score first (no utterance_scores.csv in <dir>)`.
+- **R25 (score side effects).** `cmd_score` writes the new normalise hash (`--accept-normalise-change`) only AFTER `score_run` succeeds, and deletes any old `region_summary.csv` and `pairwise_vs_baseline.csv` in the output dir before scoring (they belong to the previous scoring; run `stats` again). `--run-id` must match the runner's `RUN_ID_RE` (fullmatch) in `score` and `stats`.
+- **R26 (ordering).** `speaker_scores.csv` and `error_pairs.csv` list regions in `PILOT_REGIONS` order like `region_summary.csv` (then any other value alphabetically).
+- **R27 (tests).** The speaker micro-average test must be able to fail on mean-of-clips (clips with different WERs inside one speaker: e.g. 3/6 and 1/4, micro 0.4, mean 0.375). Add an assertion that a region's CI equals `bootstrap_ci(speakers, "read|<region>")` so the seed key is pinned.
+- **R28 (notebook).** Do not `fillna(0)` the error bars (low_n bars have none); drop the unused `pairwise` load; the clip browser shows a text note instead of crashing when an audio file is missing, and says that the words shown are normalised.
+- Accepted, not coded: a clip whose log's latest row failed but whose raw file exists is scored from the raw file; `score` and `stats` need the repo root as cwd; an empty clips file scores 0 clips.
+
+## Larger runs inside the free tier (R29), decided 2026-11-05
+- **R29a (`select --cap-minutes X`).** Optional, pilot stage only (other stages: exit 2); must be finite and `> 0`. It replaces `PILOT_CAP_MIN` (10) for that call; the default is unchanged. The refusal message for the default cap ends `; raise it with --cap-minutes X`.
+- **R29b (`to send` line).** After the gate passes and before the first request, `transcribe` prints `to send: N clips, M.MM min (about C credits at 330 credits/min, unverified; check the dashboard)` for the real backend and `to send (fake): N clips, M.MM min` for the fake one. N and M count the clips that will actually be sent (finished raw files are skipped unless `--force`). `CREDITS_PER_MIN = 330` in `constants.py` is used for this message only: no ledger, no enforcement, the cap is still `--max-audio-minutes`.
+- **R29c (fetch script).** `scripts/fetch_english_dialects_samples.py` gains `--list` (rows, speakers, rows per speaker per config; whole subset scanned in pages of 100, cached in `data/hf_speakers.json`, no audio), `--speakers N` (at most N per label, most rows first, ties by id), `--clips-per-label N` (round-robin over those speakers; stderr warning when a label cannot reach N) alongside the old per-speaker `--clips`, `--genders male|female|both` (default male), `--out CSV` (default `manifests/clips_in.csv`), `--exclude-from CSV` (repeatable). A config (`<label>_<gender>`) is one label. Female speaker key is `f<number>` (`midlands_f3397`), male keys are unchanged, so existing ids still hold. Clips are taken in dataset order within a speaker (the 36 existing clips came from 8 sampled windows, so a re-run may pick other clips). Existing WAVs are not downloaded again; each WAV is checked (PCM16 mono >= 16 kHz).
+- **R29d (tests).** `tests/test_fetch_script.py` loads the script with `importlib` and replaces its `get` function (no network): allocation, caps and warnings, `--exclude-from`, female keys, the cache, and a manifest that passes `ukstt build-manifest`. Further tests for `--cap-minutes` (`test_cli.py`) and the `to send` line (`test_runner.py`). 414 tests.
