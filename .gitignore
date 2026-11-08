@@ -13,7 +13,24 @@
 /manifests/clips.csv
 /manifests/pilot.csv
 /manifests/smoke.csv
+/manifests/demo.csv
 /manifests/*_report.csv
+
+# Dialect-set reference transcripts fetched from ylacombe/english_dialects by
+# scripts/fetch_english_dialects_samples.py (same category as /data/audio/, already ignored
+# above). CAVEAT: unlike audio (audio_sha256 is hashed and checked), reference text is never
+# hashed or verified anywhere in this repo, and the fetch script's own docstring warns that a
+# re-run with different parameters picks partly different clips. Re-fetching is NOT guaranteed
+# to reproduce the exact transcript that was paired with a given clip_id in any past scoring
+# run. If you need to reproduce historical results exactly, keep a copy of these files outside
+# git before deleting or re-fetching. Your own references/*.txt (custom demo clips) are exempt
+# below and stay tracked.
+/references/irish_*.txt
+/references/midlands_*.txt
+/references/northern_*.txt
+/references/scottish_*.txt
+/references/southern_*.txt
+/references/welsh_*.txt
 .venv/
 __pycache__/
 *.egg-info/

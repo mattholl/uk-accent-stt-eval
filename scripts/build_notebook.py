@@ -10,7 +10,7 @@ CELLS = [
            "and `runs/<RUN_ID>/raw/*.json`. The charts only show what the CSVs hold: a pilot with 2 speakers per "
            "region is a pipeline check, not a regional finding."),
     # 1. load
-    ("code", '''RUN_ID = "dummy-pilot-001"
+    ("code", '''RUN_ID = "demo-004"
 
 import json
 import os
@@ -32,6 +32,8 @@ pairs = pd.read_csv(results / "error_pairs.csv", keep_default_na=False)
 clips = pd.read_csv(run / "clips.csv", keep_default_na=False)
 tasks = sorted(summary["task"].unique())  # empty for a run with no scored pilot clips (e.g. the demo set)
 print(RUN_ID, "-", len(clips), "clips;", utterances["status"].value_counts().to_dict())
+# region_summary is empty for a demo-only run (no region/task); per-clip WER is in utterances instead.
+display(utterances[["clip_id", "status", "n_ref", "n_hyp", "subs", "dels", "ins", "wer"]])
 summary'''),
     # 2. WER by region
     ("code", '''# WER by region, one panel per task. Hatched bars: low_n. Error bars: 95% bootstrap CI (only with 5+ speakers).
