@@ -1,6 +1,6 @@
 # UK & Irish Regional Accent Accuracy: ElevenLabs Scribe STT
 
-**Status:** Built and tested on the fake backend (steps S0–S6, 414 tests). Ran against the real API: a 1-clip smoke test, a 36-clip pilot, the main 840-clip evaluation (47 speakers, 85.6 minutes of audio; 82.4 minutes sent in that run, the other 36 reused from the pilot), a 34-clip Midlands top-up, and four demo runs (7 clips) of your own recordings.
+**Status:** Built and tested on the fake backend (steps S0–S6, 414 tests). Ran against the real API: a 1-clip smoke test, a 36-clip pilot, the main 840-clip evaluation (47 speakers, 85.6 minutes of audio; 82.4 minutes sent in that run, the other 36 reused from the pilot), a 34-clip Midlands top-up, and four demo runs (7 clips) of recordings found online.
 **Created:** 2026-11-02
 
 ## Goal
@@ -25,7 +25,7 @@ Benchmark the transcription accuracy of one model, the ElevenLabs Speech-to-Text
 
 ## Approach in one paragraph
 
-Code is built and tested against a fake transcription backend (the default). The real API is gated behind an explicit flag and a `--max-audio-minutes` cap. There is no credit ledger and no response cache: a finished clip is simply not sent again when you resume a run. Four real runs have been made: `smoke-001` (1 clip), `pilot-001` (36 clips, 3.2 min), `large-001` (the main evaluation: 840 clips from the open dataset, 47 speakers, 85.6 min of audio, 10 to 11 speakers in four regions and 3 each in Irish and Midlands), and `midlands-extra-001` (a 34-clip top-up, scored separately and not merged into `large-001`). Results for each run are in `results/<run-id>/`, the saved run manifest and per-clip text in `runs/<run-id>/`, and the regional tables quoted below come from `results/large-001/`. Your own recordings are a separate optional `demo` set (`demo-001` to `demo-004`): they are transcribed so you can read and listen, but they are kept out of the regional statistics. Irish and Midlands have only 3 speakers each, so their figures are flagged `low_n` and get no confidence interval; the sample is still small enough that the study validates the pipeline and gives a first regional read more than it settles accent effects. A larger study (well beyond the free tier) needs a paid plan and your approval first.
+Code is built and tested against a fake transcription backend (the default). The real API is gated behind an explicit flag and a `--max-audio-minutes` cap. There is no credit ledger and no response cache: a finished clip is simply not sent again when you resume a run. Four real runs have been made: `smoke-001` (1 clip), `pilot-001` (36 clips, 3.2 min), `large-001` (the main evaluation: 840 clips from the open dataset, 47 speakers, 85.6 min of audio, 10 to 11 speakers in four regions and 3 each in Irish and Midlands), and `midlands-extra-001` (a 34-clip top-up, scored separately and not merged into `large-001`). Results for each run are in `results/<run-id>/`, the saved run manifest and per-clip text in `runs/<run-id>/`, and the regional tables quoted below come from `results/large-001/`. Recordings found online are a separate optional `demo` set (`demo-001` to `demo-004`): they are transcribed so you can read and listen, but they are kept out of the regional statistics. Irish and Midlands have only 3 speakers each, so their figures are flagged `low_n` and get no confidence interval; the sample is still small enough that the study validates the pipeline and gives a first regional read more than it settles accent effects. A larger study (well beyond the free tier) needs a paid plan and your approval first.
 
 ## Results so far
 
@@ -33,7 +33,7 @@ Main run `large-001`: 840 read-speech clips, 47 speakers, 85.6 minutes of audio 
 
 Southern 2.73% (95% CI 2.03–3.55), Midlands 2.25% (3 speakers, `low_n`), Scottish 2.43% (1.39–3.70), Welsh 2.81% (2.04–3.53), Northern 3.44% (2.45–4.28), Irish 5.79% (3 speakers, `low_n`).
 
-Only Irish sits clearly above Southern (+3.1 points), and that rests on 3 speakers. Northern is +0.7 points and its interval overlaps Southern's. Most remaining errors are US/UK spelling variants, proper nouns and one-word slips, not mishearing. The caveat stands: with 3 speakers in Irish and Midlands and 10 to 11 elsewhere, this is a first regional read, not a settled accent effect. There is no separate Yorkshire figure: the dataset has no Yorkshire label, so Yorkshire speakers sit inside "Northern". Your own recordings (`demo-001` to `demo-004`) are informal samples, not a measured set, and are excluded from these numbers.
+Only Irish sits clearly above Southern (+3.1 points), and that rests on 3 speakers. Northern is +0.7 points and its interval overlaps Southern's. Most remaining errors are US/UK spelling variants, proper nouns and one-word slips, not mishearing. The caveat stands: with 3 speakers in Irish and Midlands and 10 to 11 elsewhere, this is a first regional read, not a settled accent effect. There is no separate Yorkshire figure: the dataset has no Yorkshire label, so Yorkshire speakers sit inside "Northern". The demo clips (`demo-001` to `demo-004`) are recordings found online (not recorded by the project owner), informal samples rather than a measured set, and are excluded from these numbers.
 
 ## Quick start
 
@@ -120,9 +120,9 @@ jupyter lab                                # opens http://localhost:8888
 
 Open `notebooks/results.ipynb`, set `RUN_ID` in its first cell (for example `"pilot-001"`) and choose Run, Run All Cells. On a remote machine use `jupyter lab --no-browser --ip=127.0.0.1 --port=8888` and forward the port with `ssh -N -L 8888:127.0.0.1:8888 USER@HOST`.
 
-### Your own samples (optional demo set)
+### Demo clips (optional)
 
-Put WAVs in `recordings/`, your transcripts in `references/`, list them in `manifests/demo_in.csv` (see docs/data-sources.md), then:
+Put clips in `recordings/` (your own or found online), their transcripts in `references/`, list them in `manifests/demo_in.csv` with the `source` column filled in (see docs/data-sources.md), then:
 
 ```
 ukstt build-manifest
@@ -138,7 +138,7 @@ The full command list is in docs/implementation-plan.md section 10.
 - [docs/implementation-plan.md](docs/implementation-plan.md): **source of truth** for the build
 - [docs/plan.md](docs/plan.md): objectives, research questions, phases, budget summary
 - [docs/methodology.md](docs/methodology.md): study design, normalisation, metrics, statistics, validity risks
-- [docs/data-sources.md](docs/data-sources.md): where the audio comes from (open datasets under discussion; your own samples as a demo set)
+- [docs/data-sources.md](docs/data-sources.md): where the audio comes from (open datasets under discussion; clips found online as a demo set)
 - [docs/elevenlabs-api-notes.md](docs/elevenlabs-api-notes.md): API facts and how we call it
 - [docs/open-questions.md](docs/open-questions.md): your decisions and what is still open
 - [docs/review/](docs/review/): author/critic history (audit trail only, not authoritative)

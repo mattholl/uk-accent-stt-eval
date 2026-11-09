@@ -20,14 +20,14 @@ Status: round 3 (consistency pass after the dataset pivot), ready for the coder.
 | P2 | Pilot cap | Pilot refused if total duration > 10.0 min (allows a larger second fetch later). | PROPOSED |
 | P12 | Scope cuts | No credit ledger, no response cache, no concurrency stress tests. Add one only if real use shows a need (decided with the user 2026-11-03). Kept: retry/backoff, concurrency, property tests, notebook. | DECIDED |
 | P3 | Full study | About 10 speakers/region, about 7.5 h = about 27,500 credits at the measured rate. Needs a paid plan and user approval. Not built or run. | PROPOSED |
-| P4 | Data | Two sets. `pilot`: the dataset clips above. `demo`: the few informal samples the user already has, for listening and general interest: no standard text, no statistics, reference optional. | PROPOSED |
+| P4 | Data | Two sets. `pilot`: the dataset clips above. `demo`: a few informal clips found online by the project owner, for listening and general interest: no standard text, no statistics, reference optional, `source` records provenance. | PROPOSED |
 | P5 | Scribe params | `model_id=scribe_v2, language_code=eng, tag_audio_events=false, timestamps_granularity=word, diarize=false, no_verbatim=false, seed=20261102, file_format=other`. `temperature` unset, no keyterms or surcharged options. | PROPOSED |
 | P6 | Fillers | Kept in the verbatim transcript, stripped from both sides by the `filler` rows in `config/normalise.csv` | PROPOSED |
 | P7 | Audio | No resampling. Input must be PCM16 mono WAV >=16 kHz. | PROPOSED |
 | P8 | Stats (pilot) | Pooled WER, per-region diff to baseline, speaker bootstrap 95% CI only when n_speakers >= 5. Permutation, Holm and difference CIs are deferred to the full study. | PROPOSED |
 | P9 | Dependencies | Runtime: `requests` only. Stdlib for math, WAV, CSV. No numpy/scipy/tenacity/dotenv. Optional extra `[notebook]`: pandas, matplotlib, jupyter, nbformat (pins verified in S0). | PROPOSED |
 | P10 | Register contractions | `gonna wanna gotta kinda sorta cos 'cause` are mapped to long forms on both sides. Dialect words are never mapped. | PROPOSED |
-| P11 | Audio on disk | Audio is never deleted or moved by the tool. `audio_path` in the manifest points at the local file (own samples under `recordings/`, dataset clips under `data/audio/`, both gitignored). The notebook plays clips with `IPython.display.Audio`. | PROPOSED |
+| P11 | Audio on disk | Audio is never deleted or moved by the tool. `audio_path` in the manifest points at the local file (demo samples under `recordings/`, dataset clips under `data/audio/`, both gitignored). The notebook plays clips with `IPython.display.Audio`. | PROPOSED |
 | X1 | Dollar cost | Any dollar figure (e.g. the $0.22/h API pay-as-you-go price) is **UNVERIFIED** as a credit conversion and is used in no decision. | NOTE |
 
 ## 2. Regions
@@ -217,7 +217,7 @@ def run_transcription(clips, opts, cfg, transcriber, sleep=time.sleep) -> int: .
 
 ## 4. Data contract (source-agnostic)
 
-How clips get here (own samples, an open dataset, a future recording drive) is decided in [data-sources.md](data-sources.md). Whatever the source, the code only sees one input file and local audio.
+How clips get here (clips found online, an open dataset, a future recording drive) is decided in [data-sources.md](data-sources.md). Whatever the source, the code only sees one input file and local audio.
 
 **`manifests/clips_in.csv`** (written by the fetch script) and the optional hand-written **`manifests/demo_in.csv`** (same columns; the fetch script never touches it, so re-fetching cannot erase demo rows). `build-manifest --in` is repeatable; the default is `manifests/clips_in.csv` plus `manifests/demo_in.csv` if that file exists. Readers accept CRLF line endings (the fetch script writes CRLF); `csvio.read_csv` opens with `newline=''` and the `csv` module handles both. Columns:
 `clip_id,set,speaker_id,region,task,audio_path,reference_path,source,notes`
@@ -232,7 +232,7 @@ How clips get here (own samples, an open dataset, a future recording drive) is d
 
 **Audio:** PCM16 WAV, mono, >=16 kHz. Anything else is a validation error whose message includes `ffmpeg -i in.m4a -ac 1 -ar 16000 -c:a pcm_s16le out.wav`. No resampling in the package. Audio files stay where they are, are never copied away or deleted, and can be played back by the notebook.
 
-**References.** For own samples write what was said, in words, no digits. Dataset references are used exactly as fetched: capitalised, unpunctuated, mostly spelled-out numbers, but 3 of the 36 fetched references contain digits (`C2c`, `1930`, `5th`, `950`); they raise `W_REF_DIGITS` (a warning, not an error) and the normaliser handles them (§6). Dialect spellings (`wee`, `nowt`, `aye`, `cannae`) stay as the dataset has them. No tool rewrites a dataset's reference beyond the normaliser (§6). If a reference was drafted from Scribe output, set `notes=ref_from_scribe` and treat that clip's WER as biased low.
+**References.** For demo clips write what was said, in words, no digits. Dataset references are used exactly as fetched: capitalised, unpunctuated, mostly spelled-out numbers, but 3 of the 36 fetched references contain digits (`C2c`, `1930`, `5th`, `950`); they raise `W_REF_DIGITS` (a warning, not an error) and the normaliser handles them (§6). Dialect spellings (`wee`, `nowt`, `aye`, `cannae`) stay as the dataset has them. No tool rewrites a dataset's reference beyond the normaliser (§6). If a reference was drafted from Scribe output, set `notes=ref_from_scribe` and treat that clip's WER as biased low.
 
 **`manifests/clips.csv`** (from `ukstt build-manifest`): the `clips_in.csv` columns plus `audio_sha256,duration_s,sample_rate_hz,channels`.
 

@@ -8,7 +8,7 @@ Details live in [implementation-plan.md](implementation-plan.md), which wins on 
 3. Which error types dominate per label (substitutions of place and personal names, deletions, insertions)? Answered descriptively from `error_pairs.csv`.
 4. (Dropped for the pilot: the dataset has read speech only, so there is no read vs spontaneous comparison.)
 
-Dropped from the earlier draft: "do public-dataset results match own recordings" (the pilot uses the open dataset; your own samples are a demo set with no statistics), and the finer regions Scouse, Geordie, Lancashire, Yorkshire, Northern Ireland and SSBE (no source).
+Dropped from the earlier draft: "do public-dataset results match own recordings" (the pilot uses the open dataset; clips found online are a demo set with no statistics), and the finer regions Scouse, Geordie, Lancashire, Yorkshire, Northern Ireland and SSBE (no source).
 
 ## Hypothesis (to test, not assumed)
 WER will be higher for stronger regional accents and dialect vocabulary than for the Southern English comparison group. ElevenLabs states English is in its "Excellent (<=5% WER)" tier overall but publishes no per-accent figures.
@@ -32,7 +32,7 @@ The free ElevenLabs key allows about 10,000 credits a month, roughly 2.7 hours o
 - About 61 credits per minute of audio, measured on this account (the 330 figure from the pricing page was wrong by 5x). Not enforced in code.
 - Pilot: 36 clips, 192 s (3.2 min) = about 200 credits. The smoke-test clip is a pilot clip, so it is sent twice (a few seconds).
 - Main run: 840 clips, 85.6 minutes of audio; 82.4 minutes sent = about 5,030 credits (dashboard went 217 to 5,247).
-- Demo set (your own samples): under 3 minutes = under 190 credits.
+- Demo set (clips found online): under 3 minutes = under 190 credits.
 - That leaves roughly 4,750 credits of the 10,000 after the main run.
 - A full study of about 7.5 h = about 27,500 credits. It cannot run on a free key and needs your approval and a paid plan.
 - Dollar figures are unverified and not used in any decision.
