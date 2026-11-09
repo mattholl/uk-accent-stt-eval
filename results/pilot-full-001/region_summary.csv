@@ -1,0 +1,7 @@
+task,region,n_speakers,n_clips,n_excluded,n_ref,subs,dels,ins,wer,ci_lo,ci_hi,low_n
+read,southern,2,6,0,86,3,1,0,0.046512,,,true
+read,midlands,3,40,0,536,9,1,2,0.022388,,,true
+read,northern,2,6,0,81,2,1,1,0.049383,,,true
+read,scottish,2,6,0,67,1,0,0,0.014925,,,true
+read,welsh,2,6,0,76,2,1,0,0.039474,,,true
+read,irish,2,6,0,76,2,1,0,0.039474,,,true

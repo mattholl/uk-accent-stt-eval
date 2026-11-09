@@ -1,0 +1,4 @@
+region,task,speaker_id,n_clips,n_ref,subs,dels,ins,errors,wer
+midlands,read,midlands_2484,12,177,1,0,0,1,0.005650
+midlands,read,midlands_3397,11,139,3,0,1,4,0.028777
+midlands,read,midlands_4310,11,152,5,1,1,7,0.046053

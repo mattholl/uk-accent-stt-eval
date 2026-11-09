@@ -1,0 +1,13 @@
+region,task,speaker_id,n_clips,n_ref,subs,dels,ins,errors,wer
+southern,read,southern_2121,3,47,2,1,0,3,0.063830
+southern,read,southern_295,3,39,1,0,0,1,0.025641
+midlands,read,midlands_3397,3,33,0,0,0,0,0.000000
+midlands,read,midlands_4310,3,35,0,0,0,0,0.000000
+northern,read,northern_1523,3,36,2,0,1,3,0.083333
+northern,read,northern_5223,3,45,0,1,0,1,0.022222
+scottish,read,scottish_3397,3,34,1,0,0,1,0.029412
+scottish,read,scottish_4310,3,33,0,0,0,0,0.000000
+welsh,read,welsh_12484,3,29,1,0,0,1,0.034483
+welsh,read,welsh_7049,3,47,1,1,0,2,0.042553
+irish,read,irish_2484,3,41,0,0,0,0,0.000000
+irish,read,irish_4310,3,35,2,1,0,3,0.085714

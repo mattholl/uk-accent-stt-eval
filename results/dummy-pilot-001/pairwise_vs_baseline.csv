@@ -1,0 +1,6 @@
+task,region,n_spk_region,n_spk_base,wer_region,wer_base,diff,low_n
+read,midlands,2,2,0.075000,0.050000,0.025000,true
+read,northern,2,2,0.060000,0.050000,0.010000,true
+read,scottish,2,2,0.140000,0.050000,0.090000,true
+read,welsh,2,2,0.095000,0.050000,0.045000,true
+read,irish,2,2,0.070000,0.050000,0.020000,true

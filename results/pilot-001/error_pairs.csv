@@ -1,0 +1,16 @@
+task,region,type,ref_word,hyp_word,count
+read,southern,del,air,,1
+read,southern,sub,colours,colors,1
+read,southern,sub,fare,airfare,1
+read,southern,sub,little,one,1
+read,northern,ins,,woods,1
+read,northern,sub,favoured,favored,1
+read,northern,del,two,,1
+read,northern,sub,woodsmoor,moor,1
+read,scottish,sub,coloured,colored,1
+read,welsh,sub,coloured,colored,1
+read,welsh,sub,mastered,remastered,1
+read,welsh,del,re,,1
+read,irish,sub,cathal,kehoe,1
+read,irish,del,that,,1
+read,irish,sub,the,a,1
