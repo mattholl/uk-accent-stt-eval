@@ -19,7 +19,7 @@ ElevenLabs `POST /v1/speech-to-text`, `model_id=scribe_v2`, one request per clip
 The full raw JSON response is stored for every clip. The scored hypothesis is `raw["text"]` only.
 
 ## Data
-See [data-sources.md](data-sources.md). The pilot uses 36 clips from `ylacombe/english_dialects` (OpenSLR SLR83 copy): 6 dialect labels x 2 male speakers x 3 clips, 3.2 minutes. Read speech only, so there is a single `read` stratum. Every pilot clip has a speaker ID, a label and a human reference transcript from the dataset. Your own informal samples are a separate `demo` set: transcribed and shown, never scored into regional numbers.
+See [data-sources.md](data-sources.md). The study uses 840 clips from `ylacombe/english_dialects` (OpenSLR SLR83 copy): the six dialect labels, 47 speakers, 85.6 minutes of audio. Four labels have 10 to 11 speakers (Southern 10, Northern 10, Scottish 10, Welsh 11); Irish and Midlands have 3 each, because the male subsets hold no more. The first 36 clips (2 speakers x 3 clips per label) were a pilot. Read speech only, so there is a single `read` stratum. Every pilot clip has a speaker ID, a label and a human reference transcript from the dataset. Your own informal samples are a separate `demo` set: transcribed and shown, never scored into regional numbers.
 
 ## Audio
 No resampling in the package. Input must be PCM16 mono WAV at 16 kHz or higher, and the validator rejects anything else with an `ffmpeg` hint (dataset importers do the conversion). Minimum 100 ms (API limit). Silence is billed. Audio files are kept on disk so you can listen.
@@ -40,17 +40,17 @@ Eleven ordered rules, in implementation-plan.md section 6. Summary:
 - A clip with an empty hypothesis scores D = N. A reference that normalises to zero words is rejected at manifest time.
 - CER and language-ID mismatch are not computed.
 
-## Statistics (pilot)
+## Statistics
 - The unit is the **speaker**, because clips from one speaker are not independent.
 - Report n speakers and n words per region.
 - Difference from baseline = WER(label) minus WER(southern). No p-values.
-- 95% bootstrap CI (resampling speakers, fixed seed, 10,000 resamples, percentile method) only when a region has at least 5 speakers. At 2 speakers a bootstrap is not an interval estimate, so those cells are empty and the row has `low_n=true`.
-- Permutation tests, Holm correction and difference CIs are deferred to a funded full study (about 10 speakers per region). At 2 vs 2 speakers the smallest possible p-value is 1/3, so they could not be informative.
+- 95% bootstrap CI (resampling speakers, fixed seed, 10,000 resamples, percentile method) only when a region has at least 5 speakers. Irish and Midlands have 3 speakers each, so their cells are empty and the row has `low_n=true`.
+- Permutation tests, Holm correction and difference CIs are deferred to a funded full study. At 3 vs 10 speakers the smallest possible p-value is 1/4, so they would not be informative for Irish and Midlands.
 
 ## Validity risks
 - Reference transcript errors or style differences inflate WER (a dataset's transcription conventions may differ from Scribe's). The shared normaliser absorbs punctuation, case, numbers and fillers but not every convention. A reference drafted from Scribe output biases WER low and is flagged in `notes`.
 - Recording quality (mic, noise) correlated with region, which a crowdsourced dataset will not control. It is reported, not corrected.
-- Few speakers per region: speaker effects dominate. The pilot cannot say anything about accents.
+- Few speakers in two regions: 3 speakers each for Irish and Midlands. Even 10 speakers per region leaves speaker effects large, so the study is a first regional read rather than a settled accent effect.
 - Read and spontaneous speech differ in difficulty, hence separate strata.
 - Region labels are self-identified and coarse ("Northern" is northern England in general; the dataset gives no town, so Yorkshire and the rest cannot be separated). Labels are never split or pooled. The comparison group is self-identified Southern English, not SSBE.
 - Speaker IDs repeat across the dataset's subsets. They are almost certainly different people sharing a number (it is only unique within a subset), so speakers are keyed `<label>_<id>`.

@@ -16,7 +16,7 @@ Sources: https://elevenlabs.io/docs/capabilities/speech-to-text, /api-reference/
 - `no_verbatim`: `false` (default) keeps fillers, false starts and repetitions. `true` makes the model drop them. The docs do not define what counts as a filler, and no price difference was found.
 
 ## Free tier and credits
-- Free plan: $0, 10,000 credits a month, Speech to Text listed as included, 8 concurrent STT requests, credits do not roll over. Scribe costs about 330 credits per audio minute, so about 30 minutes a month.
+- Free plan: $0, 10,000 credits a month, Speech to Text listed as included, 8 concurrent STT requests, credits do not roll over. The pricing page implies about 330 credits per audio minute (about 30 minutes a month), but measured cost on this account is about 61 credits per audio minute, so about 2.7 hours a month.
 - Pay-as-you-go API price: $0.22 per hour of audio. **Unverified as a credit conversion, and not used in any decision.** Credits are the only unit in the plan.
 - **Unverified:** whether a free key can call the STT API at all, whether billing rounds per request, and the free-plan terms for research use. The smoke test (S7) settles the first. Check your remaining credits on the ElevenLabs dashboard before the real pilot.
 

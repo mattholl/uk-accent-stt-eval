@@ -13,11 +13,11 @@ The clip file format the code needs is in [implementation-plan.md](implementatio
 
 ## Already fetched
 `python3 scripts/fetch_english_dialects_samples.py` (needs no API key) wrote:
-- `data/audio/*.wav`: 36 clips, 48 kHz mono 16-bit, 3.2 minutes in total
+- `data/audio/*.wav`: 840 clips, 48 kHz mono 16-bit, 85.6 minutes in total (36 in the first pilot fetch, 204 in the first expansion, 600 in the second)
 - `references/*.txt`: the dataset transcript for each clip
 - `manifests/clips_in.csv`: the manifest the pipeline reads, `set=pilot`
 
-Sample design: male subsets only (Irish exists only as male, so this holds gender constant), 2 speakers per label, 3 clips each, at most 12 s per clip. It is rate-limited by the server and retries on its own.
+Sample design: male subsets only (Irish exists only as male, so this holds gender constant). The pilot took 2 speakers per label x 3 clips; the study set takes up to 34 or 100 clips per label across up to 10 speakers, so four labels reach 10 to 11 speakers and Irish and Midlands stay at their 3. Clips are at most 60 s (the pilot fetch capped at 12 s). It is rate-limited by the server and retries on its own.
 
 ### Larger sets (R29)
 `--list [--genders both]` prints, per subset, the rows, the number of speakers and the rows per speaker (it scans the whole subset in pages of 100 once and caches it in `data/hf_speakers.json`; delete the file to rescan; no audio is downloaded). Options: `--speakers N` (at most N speakers per label, those with the most rows, ties by id), `--clips-per-label N` (N clips per label spread round-robin over them; stderr warning if a label cannot reach N) or `--clips N` (per speaker, the old option), `--genders male|female|both` (default male), `--max-seconds`, `--out CSV` (default `manifests/clips_in.csv`; another name leaves the existing manifest alone) and `--exclude-from CSV` (repeatable; skips the clip_ids listed there, e.g. the 36 pilot clips). Female speakers are keyed `<label>_f<number>` (male ids are unchanged), because the same number occurs in male and female subsets. Verified speaker counts: irish_male 3 x 150 rows, midlands_male 3 x 150, midlands_female 2 (150 and 96), welsh_male 11 x 150. The 36 clips already fetched were chosen from 8 sampled windows; the new script takes clips in dataset order within each speaker, so a re-run picks partly different clips (the ids have the same form).

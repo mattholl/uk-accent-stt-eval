@@ -14,12 +14,12 @@ Status: round 3 (consistency pass after the dataset pivot), ready for the coder.
 | D4 | Ethics | No sign-off. Pseudonymous speaker IDs are kept anyway. | DECIDED |
 | D5 | Language | `language_code=eng` fixed. No auto-detect. | DECIDED |
 | D6 | Output | CSV tables plus a pandas/matplotlib notebook (`notebooks/results.ipynb`) with graphs and audio players | DECIDED |
-| D7 | Key | Free ElevenLabs key: 10,000 credits/month, about 330 credits per audio minute (pricing page), so about 30 min/month | DECIDED |
+| D7 | Key | Free ElevenLabs key: 10,000 credits/month. Measured on this account: about 61 credits per audio minute (the pricing page's 330/min was 5x too high), so about 2.7 h/month | DECIDED |
 | D8 | Dev approach | Default backend is `fake`. The real API is gated. | DECIDED |
-| P1 | Pilot | Dataset `ylacombe/english_dialects` (Hugging Face copy of OpenSLR SLR83, CC BY-SA 4.0, read speech only). Male subsets only (Irish exists only as male), 2 speakers per label x 3 clips = **36 clips, 3.2 min, about 1,060 credits**. Already fetched by `scripts/fetch_english_dialects_samples.py`. Validates the pipeline only, not regional claims. | DECIDED |
+| P1 | Pilot | Dataset `ylacombe/english_dialects` (Hugging Face copy of OpenSLR SLR83, CC BY-SA 4.0, read speech only). Male subsets only (Irish exists only as male). The 36-clip pilot was 2 speakers per label x 3 clips (3.2 min, about 200 credits). The study set used for results is **840 clips, 47 speakers, 85.6 min of audio (82.4 min sent), about 5,030 credits** (`large-001`): 10 to 11 speakers in Southern, Northern, Scottish and Welsh, 3 each in Irish and Midlands. Already fetched by `scripts/fetch_english_dialects_samples.py`. | DECIDED |
 | P2 | Pilot cap | Pilot refused if total duration > 10.0 min (allows a larger second fetch later). | PROPOSED |
 | P12 | Scope cuts | No credit ledger, no response cache, no concurrency stress tests. Add one only if real use shows a need (decided with the user 2026-11-03). Kept: retry/backoff, concurrency, property tests, notebook. | DECIDED |
-| P3 | Full study | About 10 speakers/region, about 7.5 h = about 148,500 credits. Needs a paid plan and user approval. Not built or run. | PROPOSED |
+| P3 | Full study | About 10 speakers/region, about 7.5 h = about 27,500 credits at the measured rate. Needs a paid plan and user approval. Not built or run. | PROPOSED |
 | P4 | Data | Two sets. `pilot`: the dataset clips above. `demo`: the few informal samples the user already has, for listening and general interest: no standard text, no statistics, reference optional. | PROPOSED |
 | P5 | Scribe params | `model_id=scribe_v2, language_code=eng, tag_audio_events=false, timestamps_granularity=word, diarize=false, no_verbatim=false, seed=20261102, file_format=other`. `temperature` unset, no keyterms or surcharged options. | PROPOSED |
 | P6 | Fillers | Kept in the verbatim transcript, stripped from both sides by the `filler` rows in `config/normalise.csv` | PROPOSED |
@@ -335,16 +335,17 @@ for k in range(max_retries + 1):
 
 ## 9. Budget (information only, nothing enforces it)
 
-The free plan gives 10,000 credits a month, about 330 credits per audio minute (pricing page, UNVERIFIED conversion), so about 30 minutes of audio. Nothing in the code counts credits. The only guard is `--max-audio-minutes`; the ElevenLabs dashboard shows what is left.
+The free plan gives 10,000 credits a month. Measured on this account: about 61 credits per audio minute (the pricing page's 330/min was 5x too high), so about 2.7 hours of audio. Nothing in the code counts credits. The only guard is `--max-audio-minutes`; the ElevenLabs dashboard shows what is left.
 
-| Run | Audio | Credits at 330/min |
+| Run | Audio | Credits at 61/min |
 |---|---|---|
-| Pilot (36 fetched clips, 192 s) | 3.2 min | about 1,060 |
-| Smoke (one clip sent twice: smoke then pilot) | under 10 s | under 55 |
-| Demo set (your samples, cap 3.0 min) | under 3 min | under 990 |
-| Re-running the pilot with `--force` | 3.2 min | about 1,060 each time |
+| Smoke (one clip) | under 10 s | under 10 |
+| Pilot (36 clips, 192 s) | 3.2 min | about 200 |
+| Study set (`large-001`, 840 clips) | 82.4 min sent | about 5,030 |
+| Demo set (your samples, cap 3.0 min) | under 3 min | under 190 |
+| Re-running a finished run with `--force` | same as the run | same as the run |
 
-- A full study (about 7.5 h) is about 148,500 credits and cannot run on a free key.
+- A full study (about 7.5 h) is about 27,500 credits and cannot run on a free key.
 - Dollar figures are UNVERIFIED (X1) and are not used.
 - If real use shows the free tier is a problem, add a cache or a ledger then. Not before.
 

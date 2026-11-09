@@ -1,6 +1,6 @@
 # UK & Irish Regional Accent Accuracy: ElevenLabs Scribe STT
 
-**Status:** Code built and tested on the fake backend (steps S0 to S6, 414 tests). Run against the real API with a working key in `.env.local` (steps S7 and S8): the 36-clip pilot, a 34-clip Midlands top-up (`midlands-extra-001`, 3 speakers total for that region), and one demo clip (`demo-001`).
+**Status:** Built and tested on the fake backend (steps S0–S6, 414 tests). Ran against the real API: a 1-clip smoke test, a 36-clip pilot, the main 840-clip evaluation (47 speakers, 85.6 minutes of audio; 82.4 minutes sent in that run, the other 36 reused from the pilot), a 34-clip Midlands top-up, and four demo runs (7 clips) of your own recordings.
 **Created:** 2026-11-02
 
 ## Goal
@@ -11,7 +11,7 @@ Benchmark the transcription accuracy of one model, the ElevenLabs Speech-to-Text
 
 - **WER (Word Error Rate):** the standard accuracy measure for speech-to-text, `(S + D + I) / N`. S = substituted, D = deleted, I = inserted words; N = words in the reference transcript. Lower is better, 0% is perfect, and it can exceed 100% if there are many insertions.
 - **STT (Speech-to-Text):** automatic transcription of audio into text.
-- **Credits:** ElevenLabs' billing unit. The free tier gives 10,000 credits a month, about 30 minutes of Scribe audio.
+- **Credits:** ElevenLabs' billing unit. The free tier gives 10,000 credits a month; measured cost on this account is about 61 credits per audio minute, so about 2.7 hours of Scribe audio.
 
 ## Scope
 
@@ -25,7 +25,15 @@ Benchmark the transcription accuracy of one model, the ElevenLabs Speech-to-Text
 
 ## Approach in one paragraph
 
-Code is built and tested against a fake transcription backend (the default). The real API is gated behind an explicit flag and a `--max-audio-minutes` cap, because the free key allows only about 30 minutes of audio a month. There is no credit ledger and no response cache: a finished clip is simply not sent again when you resume a run. The first real run is a pilot of 36 clips (3.2 minutes, about 1,060 credits) from that dataset: 6 labels x 2 male speakers x 3 clips. The clips are already downloaded to `data/audio/`. Your own informal samples, if you supply any, are a separate optional `demo` set: they are transcribed so you can read and listen, but there is no standard text and no statistics. With about 2 speakers per region the pilot validates the pipeline only. It does not support conclusions about accents. A full study (about 10 speakers per region) needs a paid plan and your approval first.
+Code is built and tested against a fake transcription backend (the default). The real API is gated behind an explicit flag and a `--max-audio-minutes` cap. There is no credit ledger and no response cache: a finished clip is simply not sent again when you resume a run. Four real runs have been made: `smoke-001` (1 clip), `pilot-001` (36 clips, 3.2 min), `large-001` (the main evaluation: 840 clips from the open dataset, 47 speakers, 85.6 min of audio, 10 to 11 speakers in four regions and 3 each in Irish and Midlands), and `midlands-extra-001` (a 34-clip top-up, scored separately and not merged into `large-001`). Results for each run are in `results/<run-id>/`, the saved run manifest and per-clip text in `runs/<run-id>/`, and the regional tables quoted below come from `results/large-001/`. Your own recordings are a separate optional `demo` set (`demo-001` to `demo-004`): they are transcribed so you can read and listen, but they are kept out of the regional statistics. Irish and Midlands have only 3 speakers each, so their figures are flagged `low_n` and get no confidence interval; the sample is still small enough that the study validates the pipeline and gives a first regional read more than it settles accent effects. A larger study (well beyond the free tier) needs a paid plan and your approval first.
+
+## Results so far
+
+Main run `large-001`: 840 read-speech clips, 47 speakers, 85.6 minutes of audio (82.4 minutes sent in the run; 36 clips reused from the pilot). WER against the Southern comparison group, from `results/large-001/region_summary.csv`:
+
+Southern 2.73% (95% CI 2.03–3.55), Midlands 2.25% (3 speakers, `low_n`), Scottish 2.43% (1.39–3.70), Welsh 2.81% (2.04–3.53), Northern 3.44% (2.45–4.28), Irish 5.79% (3 speakers, `low_n`).
+
+Only Irish sits clearly above Southern (+3.1 points), and that rests on 3 speakers. Northern is +0.7 points and its interval overlaps Southern's. Most remaining errors are US/UK spelling variants, proper nouns and one-word slips, not mishearing. The caveat stands: with 3 speakers in Irish and Midlands and 10 to 11 elsewhere, this is a first regional read, not a settled accent effect. There is no separate Yorkshire figure: the dataset has no Yorkshire label, so Yorkshire speakers sit inside "Northern". Your own recordings (`demo-001` to `demo-004`) are informal samples, not a measured set, and are excluded from these numbers.
 
 ## Quick start
 
@@ -56,12 +64,14 @@ ukstt score --run-id dummy-pilot-001 --clips dummy/manifests/pilot.csv
 ukstt stats --run-id dummy-pilot-001
 ```
 
-### Real evals (calls ElevenLabs and uses credits: about 1,100 for the 36-clip pilot)
+### Real evals (calls ElevenLabs and uses credits)
 
-The API key goes in `.env.local` as `ELEVENLABS_API_KEY=...` (gitignored), or in the `ELEVENLABS_API_KEY` environment variable. Never paste it into chat or commit it. The 36 pilot clips are already in `data/audio/` (re-fetch with `python3 scripts/fetch_english_dialects_samples.py`).
+The API key goes in `.env.local` as `ELEVENLABS_API_KEY=...` (gitignored), or in the `ELEVENLABS_API_KEY` environment variable. Never paste it into chat or commit it. The audio is already in `data/audio/` (re-fetch with `python3 scripts/fetch_english_dialects_samples.py`).
+
+Measured cost on this account: about 61 credits per audio minute. The 36-clip pilot (3.2 min) used about 200 credits, and the main 840-clip run used about 5,030 credits for the 82.4 minutes it sent.
 
 ```
-ukstt build-manifest                       # validates the 36 clips; writes manifests/clips.csv
+ukstt build-manifest                       # validates manifests/clips_in.csv (70 clips); writes manifests/clips.csv
 ukstt select --stage smoke
 ukstt transcribe --backend elevenlabs --max-audio-minutes 0.5 --workers 1 --clips manifests/smoke.csv --run-id smoke-001
 ukstt select --stage pilot
@@ -70,7 +80,20 @@ ukstt score --run-id pilot-001
 ukstt stats --run-id pilot-001
 ```
 
-Results are in `results/pilot-001/`. Running `transcribe` again with the same `--run-id` sends nothing (finished clips are skipped); add `--force` to send them all again. `--max-audio-minutes` is required for the real backend and is the only spend guard. Before sending, `transcribe` prints `to send: N clips, M.MM min (about C credits at 330 credits/min, unverified; check the dashboard)` for the clips that will actually be sent (resume-aware); the credit figure is an estimate and nothing enforces it.
+Results are in `results/pilot-001/`. Running `transcribe` again with the same `--run-id` sends nothing (finished clips are skipped); add `--force` to send them all again. `--max-audio-minutes` is required for the real backend and is the only spend guard. Before sending, `transcribe` prints `to send: N clips, M.MM min (about C credits...)` for the clips that will actually be sent (resume-aware); the credit figure is still computed at 330 credits/min and is an over-estimate for this account (measured: about 61 credits/min), and nothing enforces it.
+
+### The main run (`large-001`, 840 clips)
+
+The full evaluation set is 840 clips from the open dataset. Its manifest is saved in `runs/large-001/clips.csv`, because the fetch manifests for the second expansion are no longer in `manifests/`. Select the pilot set without the default 10-minute cap:
+
+```
+ukstt select --clips runs/large-001/clips.csv --stage pilot --cap-minutes 120 --out manifests/pilot_840.csv
+ukstt transcribe --backend elevenlabs --max-audio-minutes 90 --workers 4 --clips manifests/pilot_840.csv --run-id large-001
+ukstt score --run-id large-001
+ukstt stats --run-id large-001
+```
+
+That is 85.61 minutes of audio, 82.41 of it to send (about 5,030 credits) because `runs/large-001/raw/` already holds the 36 pilot results and a resumed run sends only the remaining 804 clips. If the quota runs out, the run stops with exit 5 and keeps what it has; run the same command again to continue.
 
 ### Larger runs (more speakers and clips)
 

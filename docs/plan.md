@@ -14,7 +14,7 @@ Dropped from the earlier draft: "do public-dataset results match own recordings"
 WER will be higher for stronger regional accents and dialect vocabulary than for the Southern English comparison group. ElevenLabs states English is in its "Excellent (<=5% WER)" tier overall but publishes no per-accent figures.
 
 ## Constraint that shapes everything
-The free ElevenLabs key allows about 10,000 credits a month, roughly 30 minutes of audio at about 330 credits per minute. So the code is developed against a fake backend, and real calls need an explicit flag and a minutes cap. Credits are not counted in code (no ledger, no cache; added only if needed): check the ElevenLabs dashboard. The free key's access to the STT API is unverified until the real smoke test (S7).
+The free ElevenLabs key allows about 10,000 credits a month, roughly 2.7 hours of audio at the measured 61 credits per minute. So the code is developed against a fake backend, and real calls need an explicit flag and a minutes cap. Credits are not counted in code (no ledger, no cache; added only if needed): check the ElevenLabs dashboard. The free key's access to the STT API is unverified until the real smoke test (S7).
 
 ## Phases (build order S0 to S9, details and acceptance checks in implementation-plan.md section 12)
 | Phase | Steps | Needs recordings? | Needs API key? |
@@ -29,15 +29,16 @@ The free ElevenLabs key allows about 10,000 credits a month, roughly 30 minutes 
 | Approval gate for a full study | S9 | n/a | n/a |
 
 ## Budget (credits; details in implementation-plan.md section 9)
-- About 330 credits per minute of audio (pricing page, unverified). Not enforced in code.
-- Pilot: 36 clips, 192 s (3.2 min) = about 1,060 credits. The smoke-test clip is a pilot clip, so it is sent twice (a few seconds).
-- Demo set (your own samples): under 3 minutes = under 1,040 credits.
-- That leaves roughly 7,900 credits of the 10,000 after the pilot and a 3-minute demo set.
-- A full study of about 7.5 h = about 148,500 credits. It cannot run on a free key and needs your approval and a paid plan.
+- About 61 credits per minute of audio, measured on this account (the 330 figure from the pricing page was wrong by 5x). Not enforced in code.
+- Pilot: 36 clips, 192 s (3.2 min) = about 200 credits. The smoke-test clip is a pilot clip, so it is sent twice (a few seconds).
+- Main run: 840 clips, 85.6 minutes of audio; 82.4 minutes sent = about 5,030 credits (dashboard went 217 to 5,247).
+- Demo set (your own samples): under 3 minutes = under 190 credits.
+- That leaves roughly 4,750 credits of the 10,000 after the main run.
+- A full study of about 7.5 h = about 27,500 credits. It cannot run on a free key and needs your approval and a paid plan.
 - Dollar figures are unverified and not used in any decision.
 
 ## Hypothesis testing in the pilot
-None. With 2 speakers per region the pilot reports pooled WER and the difference from baseline, flagged `low_n`. Bootstrap confidence intervals appear only from 5 speakers per region. Permutation tests and Holm correction are deferred to a funded full study.
+None. The report gives pooled WER and the difference from the Southern baseline. Irish and Midlands (3 speakers each) are flagged `low_n`; permutation tests and Holm correction are deferred. Bootstrap confidence intervals appear only from 5 speakers per region. Permutation tests and Holm correction are deferred to a funded full study.
 
 ## Deliverables
 - Scripts, config and tests (package `ukstt`)
